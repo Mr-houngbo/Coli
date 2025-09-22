@@ -31,17 +31,31 @@ const Publish: React.FC = () => {
     'Dakar', 'Abidjan', 'Casablanca', 'Tunis', 'Alger', 'Bamako', 'Conakry'
   ];
 
-  const handleSubmit = async (values: any, { setSubmitting }: any) => {
-    const annonceData = {
-      ...values,
-      userId: user!.id,
-      user: user!,
-      date: values.date,
-    };
+  const handleSubmit = async (values: any, { setSubmitting, setStatus }: any) => {
+    setStatus(undefined);
+    try {
+      // Mapper les champs du formulaire vers le schéma DB
+      const mapped: any = {
+        type: values.type === 'EXPEDITEUR' ? 'Expediteur' : 'GP',
+        ville_depart: values.villeDepart,
+        ville_arrivee: values.villeArrivee,
+        date_annonce: values.date, // IMPORTANT: utiliser date_annonce
+        poids: Number(values.poids),
+        prix_kg: values.prix ? Number(values.prix) : null,
+        description: values.description || null,
+      };
+      if (mapped.type === 'GP') {
+        mapped.transport = values.moyenTransport || null;
+      }
 
-    addAnnonce(annonceData);
-    navigate('/dashboard');
-    setSubmitting(false);
+      await addAnnonce(mapped, user!.id);
+      navigate('/dashboard');
+    } catch (e: any) {
+      console.error('Erreur publication:', e?.message || e);
+      setStatus(e?.message || "Impossible de publier l'annonce.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -64,7 +78,7 @@ const Publish: React.FC = () => {
             validationSchema={PublishSchema}
             onSubmit={handleSubmit}
           >
-            {({ values, setFieldValue, isSubmitting }) => (
+            {({ values, setFieldValue, isSubmitting, status }) => (
               <Form className="space-y-6">
                 {/* Type Selection */}
                 <div>
@@ -237,6 +251,9 @@ const Publish: React.FC = () => {
 
                 {/* Submit Button */}
                 <div className="flex justify-end space-x-4">
+                  {status && (
+                    <div className="flex-1 text-sm text-red-600 self-center">{String(status)}</div>
+                  )}
                   <button
                     type="button"
                     onClick={() => navigate(-1)}

@@ -8,7 +8,7 @@ interface AnnonceCardProps {
 }
 
 const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
-  const getTransportIcon = (transport?: Annonce['moyen_transport']) => {
+  const getTransportIcon = (transport?: Annonce['transport']) => {
     switch (transport) {
       case 'avion':
         return <Plane className="h-4 w-4" />;
@@ -60,9 +60,9 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
           {isGP ? 'GP Voyage' : 'Expéditeur'}
         </span>
         <div className="flex items-center text-sm text-gray-500">
-          {isGP && annonce.moyen_transport && getTransportIcon(annonce.moyen_transport)}
-          {isGP && annonce.moyen_transport && (
-            <span className="ml-1 capitalize">{annonce.moyen_transport}</span>
+          {isGP && annonce.transport && getTransportIcon(annonce.transport)}
+          {isGP && annonce.transport && (
+            <span className="ml-1 capitalize">{annonce.transport}</span>
           )}
         </div>
       </div>
@@ -158,10 +158,10 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
       </div>
 
       {/* Transport pour GP */}
-      {isGP && annonce.moyen_transport && (
+      {isGP && annonce.transport && (
         <div className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
-              {getTransportIcon(annonce.moyen_transport)}
-              <span>{annonce.moyen_transport || 'Non spécifié'}</span>
+              {getTransportIcon(annonce.transport)}
+              <span>{annonce.transport || 'Non spécifié'}</span>
         </div>
       )}
 

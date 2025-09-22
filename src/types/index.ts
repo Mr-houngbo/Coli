@@ -19,7 +19,7 @@ export interface Annonce {
   date_limite?: string;
   poids: number;
   prix_kg?: number;
-  moyen_transport?: 'avion' | 'voiture' | 'bus' | 'train';
+  transport?: 'avion' | 'voiture' | 'bus' | 'train';
   description?: string;
   statut?: 'en_attente' | 'validee' | 'terminee' | 'annulee';
   created_at: string;

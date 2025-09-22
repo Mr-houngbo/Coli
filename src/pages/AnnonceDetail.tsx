@@ -87,7 +87,7 @@ const AnnonceDetail: React.FC = () => {
   const dateStr = annonce.date || annonce.date_annonce || annonce.created_at;
   const poids = annonce.poids || annonce.poids_kg || annonce.weight || 0;
   const prixKg = annonce.prix || annonce.prix_kg || null;
-  const moyenTransport = annonce.moyenTransport || annonce.moyen_transport || undefined;
+  const moyenTransport = annonce.moyenTransport || annonce.moyen_transport || annonce.transport || undefined;
 
   const user = annonce.user || {};
   const userName = user.full_name || user.name || 'Utilisateur';
