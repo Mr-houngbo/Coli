@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnnonces } from '../contexts/AnnonceContext';
-import { User, Phone, Mail, Package, Edit2, Save, X } from 'lucide-react';
+import { User, Phone, Mail, Edit2, Save, X, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const ProfileSchema = Yup.object().shape({
   name: Yup.string()
@@ -18,24 +19,68 @@ const ProfileSchema = Yup.object().shape({
 });
 
 const Profile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { getUserAnnonces } = useAnnonces();
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const userAnnonces = getUserAnnonces(user?.id || '');
-  const totalAnnonces = userAnnonces.length;
-  const gpAnnonces = userAnnonces.filter(a => a.type === 'GP').length;
-  const expediteurAnnonces = userAnnonces.filter(a => a.type === 'EXPEDITEUR').length;
+  const [annonces, setAnnonces] = useState<{total: number; gp: number; expediteur: number}>({total: 0, gp: 0, expediteur: 0});
+
+  useEffect(() => {
+    const loadAnnonces = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const userAnnonces = await getUserAnnonces(user.id);
+        setAnnonces({
+          total: userAnnonces.length,
+          gp: userAnnonces.filter((a: any) => a.type === 'GP').length,
+          expediteur: userAnnonces.filter((a: any) => a.type === 'Expediteur').length
+        });
+      } catch (error) {
+        console.error('Erreur lors du chargement des annonces:', error);
+      }
+    };
+
+    loadAnnonces();
+  }, [user?.id, getUserAnnonces]);
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
-    // Simulation de la mise à jour
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsEditing(false);
-    setSubmitting(false);
+    if (!user?.id) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Mise à jour du profil dans la table profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: values.name,
+          phone: values.phone,
+          whatsapp_number: values.phone,
+        })
+        .eq('id', user.id);
+      
+      if (profileError) throw profileError;
+      
+      // Rafraîchir les données du profil
+      await refreshProfile();
+      
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du profil:', error);
+    } finally {
+      setIsLoading(false);
+      setSubmitting(false);
+    }
   };
 
-  if (!user) {
-    return null;
+  if (!user || !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+      </div>
+    );
   }
 
   return (
@@ -50,8 +95,10 @@ const Profile: React.FC = () => {
                   <User className="h-8 w-8" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">{user.name}</h1>
-                  <p className="text-violet-100">Membre GP Connect</p>
+                  <h1 className="text-3xl font-bold">{profile.full_name}</h1>
+                  <p className="text-violet-100">
+                    {profile.role === 'gp' ? 'GP' : 'Expéditeur'} sur GP Connect
+                  </p>
                 </div>
               </div>
               
@@ -76,9 +123,9 @@ const Profile: React.FC = () => {
                 
                 <Formik
                   initialValues={{
-                    name: user.name,
-                    email: user.email,
-                    phone: user.phone,
+                    name: profile.full_name,
+                    email: user.email || '',
+                    phone: profile.phone || '',
                   }}
                   validationSchema={ProfileSchema}
                   onSubmit={handleSubmit}
@@ -91,7 +138,7 @@ const Profile: React.FC = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <User className="h-5 w-5 text-gray-400" />
+                            <User className="h-5 w-5 text-gray-400" aria-hidden="true" />
                           </div>
                           <Field
                             id="name"
@@ -114,7 +161,7 @@ const Profile: React.FC = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Mail className="h-5 w-5 text-gray-400" />
+                            <Mail className="h-5 w-5 text-gray-400" aria-hidden="true" />
                           </div>
                           <Field
                             id="email"
@@ -137,7 +184,7 @@ const Profile: React.FC = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Phone className="h-5 w-5 text-gray-400" />
+                            <Phone className="h-5 w-5 text-gray-400" aria-hidden="true" />
                           </div>
                           <Field
                             id="phone"
@@ -162,7 +209,17 @@ const Profile: React.FC = () => {
                             className="bg-violet-600 text-white px-6 py-2 rounded-lg hover:bg-violet-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
                           >
                             <Save className="h-4 w-4" />
-                            <span>{isSubmitting ? 'Enregistrement...' : 'Enregistrer'}</span>
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                Enregistrement...
+                              </>
+                            ) : (
+                              <>
+                                Enregistrer les modifications
+                                <Save className="ml-2 h-4 w-4" />
+                              </>
+                            )}
                           </button>
                           <button
                             type="button"
@@ -187,29 +244,35 @@ const Profile: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Total annonces</span>
-                      <span className="font-bold text-2xl text-violet-600">{totalAnnonces}</span>
+                      <span className="font-bold text-2xl text-violet-600">{annonces.total}</span>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Annonces GP</span>
-                      <span className="font-bold text-xl text-green-600">{gpAnnonces}</span>
+                      <span className="font-bold text-xl text-green-600">{annonces.gp}</span>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Colis à envoyer</span>
-                      <span className="font-bold text-xl text-blue-600">{expediteurAnnonces}</span>
+                      <span className="font-bold text-xl text-blue-600">{annonces.expediteur}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-violet-50 rounded-lg p-6">
-                  <h4 className="font-bold text-violet-900 mb-2">🎯 Conseils</h4>
-                  <ul className="text-sm text-violet-800 space-y-1">
-                    <li>• Complétez votre profil</li>
-                    <li>• Soyez précis dans vos annonces</li>
-                    <li>• Répondez rapidement aux messages</li>
-                    <li>• Respectez vos engagements</li>
-                  </ul>
+                <div className="space-y-4">
+                  <div className="bg-violet-100 p-4 rounded-lg">
+                    <p className="text-violet-800 text-sm">
+                      Vous ne pouvez pas modifier votre adresse email. Contactez le support pour toute modification.
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-800 mb-2">Conseils pour une bonne expérience :</h4>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>• Soyez précis dans vos annonces</li>
+                      <li>• Répondez rapidement aux messages</li>
+                      <li>• Respectez vos engagements</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>

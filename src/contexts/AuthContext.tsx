@@ -1,118 +1,204 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AuthContextType, User, RegisterData } from '../types';
-import { toast } from 'react-toastify';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { User } from '@supabase/supabase-js';
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+type Profile = {
+  id: string;
+  full_name: string;
+  whatsapp_number: string;
+  phone: string;
+  role: 'expediteur' | 'gp' | 'admin';
+  created_at: string;
+  updated_at: string;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+type AuthContextType = {
+  user: User | null;
+  profile: Profile | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (data: { email: string; password: string; name: string; phone: string }) => Promise<boolean>;
+  loginWithGoogle: () => Promise<boolean>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
+  refreshProfile: () => Promise<void>;
+};
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+      setProfile(data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      setProfile(null);
+      return null;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await fetchProfile(user.id);
+    }
+  };
 
   useEffect(() => {
-    // Simuler la récupération du token au démarrage
-    const token = localStorage.getItem('gp-connect-token');
-    const userData = localStorage.getItem('gp-connect-user');
-    
-    if (token && userData) {
+    // Récupérer la session au premier rendu
+    const getSession = async () => {
       try {
-        setUser(JSON.parse(userData));
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+        
+        if (session?.user?.id) {
+          await fetchProfile(session.user.id);
+        }
       } catch (error) {
-        localStorage.removeItem('gp-connect-token');
-        localStorage.removeItem('gp-connect-user');
+        console.error("Erreur lors de la récupération de la session:", error);
+      } finally {
+        setLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+    
+    getSession();
+
+    // Écouter les changements de session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setUser(session?.user ?? null);
+        
+        if (session?.user?.id) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
+        
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Simulation d'une API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock user data
-      const mockUser: User = {
-        id: '1',
-        name: 'John Doe',
-        email: email,
-        phone: '+33123456789',
-        whatsapp: '+33123456789'
-      };
+      // Authentifier avec Supabase Auth
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      localStorage.setItem('gp-connect-token', 'mock-jwt-token');
-      localStorage.setItem('gp-connect-user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      if (error) throw error;
       
-      toast.success('Connexion réussie !');
+      // Le profile sera automatiquement chargé via l'écouteur d'état d'authentification
       return true;
-    } catch (error) {
-      toast.error('Erreur de connexion');
+    } catch (error: any) {
+      console.error('Erreur de connexion:', error.message);
       return false;
     }
   };
 
-  const register = async (userData: RegisterData): Promise<boolean> => {
+  const register = async (data: { email: string; password: string; name: string; phone: string }): Promise<boolean> => {
     try {
-      // Simulation d'une API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newUser: User = {
-        id: Date.now().toString(),
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        whatsapp: userData.phone
-      };
+      // 1. Créer le compte d'authentification
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.name,
+            phone: data.phone
+          }
+        }
+      });
 
-      localStorage.setItem('gp-connect-token', 'mock-jwt-token');
-      localStorage.setItem('gp-connect-user', JSON.stringify(newUser));
-      setUser(newUser);
-      
-      toast.success('Compte créé avec succès !');
+      if (authError) throw authError;
+
+      // Créer le profil utilisateur après l'inscription
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            full_name: data.name,
+            phone: data.phone,
+            whatsapp_number: data.phone,
+            role: 'expediteur' // Rôle par défaut
+          });
+          
+        if (profileError) throw profileError;
+      }
+
       return true;
-    } catch (error) {
-      toast.error('Erreur lors de la création du compte');
+    } catch (error: any) {
+      console.error('Erreur lors de l\'inscription:', error);
       return false;
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('gp-connect-token');
-    localStorage.removeItem('gp-connect-user');
-    setUser(null);
-    toast.info('Déconnecté');
+  const loginWithGoogle = async (): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+
+      if (error) throw error;
+      return true;
+    } catch (error: any) {
+      console.error('Erreur lors de la connexion avec Google:', error);
+      return false;
+    }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
-      </div>
-    );
-  }
+  const logout = async (): Promise<void> => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+    }
+  };
+
+  const value = {
+    user,
+    profile,
+    loading,
+    login,
+    register,
+    loginWithGoogle,
+    logout,
+    isAuthenticated: !!user,
+    refreshProfile,
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        register,
-        logout,
-        isAuthenticated: !!user,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
+  }
+  return context;
 };

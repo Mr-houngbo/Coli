@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Annonce } from '../types';
 import { toast } from 'react-toastify';
+import { supabase } from '../lib/supabaseClient';
 
 interface AnnonceContextType {
   annonces: Annonce[];
-  addAnnonce: (annonce: Omit<Annonce, 'id' | 'createdAt'>) => void;
-  getUserAnnonces: (userId: string) => Annonce[];
-  getAnnonceById: (id: string) => Annonce | undefined;
+  addAnnonce: (annonce: Omit<Annonce, 'id' | 'created_at' | 'user_id'>, userId: string) => Promise<Annonce>;
+  getUserAnnonces: (userId: string) => Promise<Annonce[]>;
+  getAllAnnonces: () => Promise<Annonce[]>;
+  getAnnonceById: (id: string) => Promise<Annonce | undefined>;
+  loading: boolean;
 }
 
 const AnnonceContext = createContext<AnnonceContextType | undefined>(undefined);
@@ -23,77 +26,105 @@ interface AnnonceProviderProps {
   children: ReactNode;
 }
 
-const mockAnnonces: Annonce[] = [
-  {
-    id: '1',
-    userId: '2',
-    type: 'GP',
-    villeDepart: 'Paris',
-    villeArrivee: 'Dakar',
-    date: '2024-02-15',
-    poids: 20,
-    prix: 15,
-    moyenTransport: 'avion',
-    user: {
-      id: '2',
-      name: 'Marie Martin',
-      email: 'marie@example.com',
-      phone: '+33123456789',
-      whatsapp: '+33123456789'
-    },
-    createdAt: '2024-01-10'
-  },
-  {
-    id: '2',
-    userId: '3',
-    type: 'EXPEDITEUR',
-    villeDepart: 'Lyon',
-    villeArrivee: 'Abidjan',
-    date: '2024-02-20',
-    poids: 5,
-    description: 'Documents importants à envoyer',
-    user: {
-      id: '3',
-      name: 'Jean Dupont',
-      email: 'jean@example.com',
-      phone: '+33987654321',
-      whatsapp: '+33987654321'
-    },
-    createdAt: '2024-01-12'
-  }
-];
+// Suppression des données mockées car nous utilisons maintenant la base de données
 
 export const AnnonceProvider: React.FC<AnnonceProviderProps> = ({ children }) => {
-  const [annonces, setAnnonces] = useState<Annonce[]>(mockAnnonces);
+  const [annonces, setAnnonces] = useState<Annonce[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const addAnnonce = (annonceData: Omit<Annonce, 'id' | 'createdAt'>) => {
-    const newAnnonce: Annonce = {
-      ...annonceData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    
-    setAnnonces(prev => [newAnnonce, ...prev]);
-    toast.success('Annonce publiée avec succès !');
+  const addAnnonce = async (annonceData: Omit<Annonce, 'id' | 'created_at' | 'user_id' | 'user'>, userId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('annonces')
+        .insert([
+          {
+            ...annonceData,
+            user_id: userId,
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setAnnonces(prev => [data as Annonce, ...prev]);
+      toast.success('Annonce publiée avec succès !');
+      return data as Annonce;
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'annonce:', error);
+      toast.error('Erreur lors de la publication de l\'annonce');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getUserAnnonces = (userId: string) => {
-    return annonces.filter(annonce => annonce.userId === userId);
+  const getUserAnnonces = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('annonces')
+        .select('*, user:profiles(*)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      return data as Annonce[];
+    } catch (error) {
+      console.error('Erreur lors de la récupération des annonces:', error);
+      return [];
+    }
   };
 
-  const getAnnonceById = (id: string) => {
-    return annonces.find(annonce => annonce.id === id);
+  const getAllAnnonces = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('annonces')
+        .select('*, user:profiles(*)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Mettre à jour le state local avec les annonces chargées
+      setAnnonces(data as Annonce[]);
+      
+      return data as Annonce[];
+    } catch (error) {
+      console.error('Erreur lors de la récupération des annonces:', error);
+      return [];
+    }
+  };
+
+  const getAnnonceById = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('annonces')
+        .select('*, user:profiles(*)')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      
+      return data as Annonce;
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'annonce:', error);
+      return undefined;
+    }
+  };
+
+  const contextValue = {
+    annonces,
+    addAnnonce,
+    getUserAnnonces,
+    getAnnonceById,
+    getAllAnnonces,
+    loading,
   };
 
   return (
-    <AnnonceContext.Provider
-      value={{
-        annonces,
-        addAnnonce,
-        getUserAnnonces,
-        getAnnonceById,
-      }}
-    >
+    <AnnonceContext.Provider value={contextValue}>
       {children}
     </AnnonceContext.Provider>
   );

@@ -1,8 +1,12 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, Package, Plus, Settings, User } from 'lucide-react';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  activeTab?: string;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ activeTab = 'dashboard' }) => {
   const location = useLocation();
 
   const menuItems = [
@@ -34,8 +38,15 @@ const Sidebar: React.FC = () => {
   ];
 
   const isActive = (path: string) => {
+    // Si on est sur la page de dashboard, on vérifie aussi l'onglet actif
+    if (path === '/dashboard' && activeTab === 'dashboard') return true;
+    if (path === '/dashboard/mes-annonces' && activeTab === 'mes-annonces') return true;
+    if (path === '/profile' && activeTab === 'profile') return true;
+    
+    // Fallback à la vérification de l'URL
     return location.pathname === path;
   };
+
 
   return (
     <div className="bg-white h-full shadow-sm border-r border-gray-200 w-64 fixed left-0 top-16 bottom-0 overflow-y-auto">
