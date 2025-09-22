@@ -77,27 +77,43 @@ const Dashboard: React.FC = () => {
     };
   }, [userId, getUserAnnonces]);
 
-  // Redirect to login if not authenticated or profile not loaded
+  // Rediriger vers /login seulement si l'utilisateur n'est pas authentifié
+  // (ne pas rediriger quand le profil n'est pas encore chargé pour éviter une boucle)
   useEffect(() => {
-    if (!user || !profile) {
+    if (!user) {
       navigate('/login');
     }
-  }, [user, profile, navigate]);
+  }, [user, navigate]);
 
   const renderDashboard = useCallback(() => {
-    if (!user || !profile) return null;
+    if (!user) return null;
+    const safeProfile = profile || {
+      id: user.id,
+      full_name: user.email?.split('@')[0] || 'Utilisateur',
+      phone: '',
+      whatsapp_number: '',
+      role: 'expediteur',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as unknown as Profile;
     
     return (
       <div>
+        {!profile && (
+          <div className="mb-4 p-3 rounded-md bg-yellow-50 border border-yellow-200 text-sm text-yellow-900">
+            Votre profil n'est pas encore complet. Certaines informations par défaut sont affichées.
+            <Link to="/profile" className="ml-2 underline">Compléter mon profil</Link>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Bonjour, {profile?.full_name || 'cher utilisateur'}
+              Bonjour, {safeProfile.full_name || 'cher utilisateur'}
             </h1>
             <p className="text-gray-600">Bienvenue sur votre tableau de bord</p>
           </div>
           <Link
-            to="/annonces/nouvelle"
+            to="/publish"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -177,7 +193,7 @@ const Dashboard: React.FC = () => {
               <p className="mt-1 text-sm text-gray-500">Commencez par créer votre première annonce.</p>
               <div className="mt-6">
                 <Link
-                  to="/annonces/nouvelle"
+                  to="/publish"
                   className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
                 >
                   <Plus className="-ml-1 mr-2 h-5 w-5" />
@@ -220,7 +236,7 @@ const Dashboard: React.FC = () => {
   }, [user, profile, totalAnnonces, gpAnnonces, expediteurAnnonces, loading, annoncesLoading, userAnnonces]);
 
   const renderMesAnnonces = useCallback(() => {
-    if (!user || !profile) return null;
+    if (!user) return null;
     
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
@@ -237,16 +253,27 @@ const Dashboard: React.FC = () => {
             userAnnonces.map((annonce) => {
               // Ensure the annonce has the correct user type
               // Create a properly typed user object with all required fields
-              const userProfile: Profile = {
-                id: profile.id,
-                full_name: profile.full_name || 'Utilisateur',
-                email: user?.email || 'email@example.com',
-                phone: profile.phone || '',
-                whatsapp_number: profile.whatsapp_number || '',
-                role: profile.role || 'expediteur',
-                created_at: profile.created_at || new Date().toISOString(),
-                updated_at: profile.updated_at || new Date().toISOString()
-              };
+              const userProfile: Profile = (
+                profile ? {
+                  id: profile.id,
+                  full_name: profile.full_name || 'Utilisateur',
+                  email: user?.email || 'email@example.com',
+                  phone: profile.phone || '',
+                  whatsapp_number: profile.whatsapp_number || '',
+                  role: profile.role || 'expediteur',
+                  created_at: profile.created_at || new Date().toISOString(),
+                  updated_at: profile.updated_at || new Date().toISOString()
+                } : {
+                  id: user!.id,
+                  full_name: user?.email?.split('@')[0] || 'Utilisateur',
+                  email: user?.email || 'email@example.com',
+                  phone: '',
+                  whatsapp_number: '',
+                  role: 'expediteur',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              ) as unknown as Profile;
               
               // Create annonce with user, ensuring all required fields are present
               const annonceWithUser = {
@@ -273,7 +300,7 @@ const Dashboard: React.FC = () => {
   }, [user, profile, loading, userAnnonces]);
 
   const renderProfile = useCallback(() => {
-    if (!profile || !user) {
+    if (!user) {
       return (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 text-violet-600 animate-spin" />
@@ -291,14 +318,14 @@ const Dashboard: React.FC = () => {
           <div>
             <h3 className="font-medium text-gray-900">Informations personnelles</h3>
             <p className="mt-1 text-sm text-gray-600">
-              {profile.full_name || 'Non renseigné'}
+              {profile?.full_name || user.email?.split('@')[0] || 'Non renseigné'}
             </p>
             <p className="text-sm text-gray-600">{user.email || 'Non renseigné'}</p>
             <p className="text-sm text-gray-600">
-              Téléphone: {profile.phone || 'Non renseigné'}
+              Téléphone: {profile?.phone || 'Non renseigné'}
             </p>
             <p className="text-sm text-gray-600">
-              WhatsApp: {profile.whatsapp_number || 'Non renseigné'}
+              WhatsApp: {profile?.whatsapp_number || 'Non renseigné'}
             </p>
           </div>
           <div className="pt-4 border-t border-gray-200">
@@ -315,7 +342,7 @@ const Dashboard: React.FC = () => {
   }, [profile, user]);
 
   const renderContent = useCallback(() => {
-    if (!user || !profile) return null;
+    if (!user) return null;
     
     switch (currentTab) {
       case 'mes-annonces':
@@ -327,7 +354,7 @@ const Dashboard: React.FC = () => {
     }
   }, [currentTab, profile, user, renderMesAnnonces, renderProfile, renderDashboard]);
 
-  if (!user || !profile) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

@@ -1,16 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAnnonces } from '../contexts/AnnonceContext';
-import { Calendar, MapPin, Package, Euro, Plane, Car, Bus, ArrowLeft, MessageSquare, Phone, User } from 'lucide-react';
+import { Calendar, MapPin, Package, Euro, Plane, Car, Bus, ArrowLeft, MessageSquare, Phone, User, Loader2 } from 'lucide-react';
 
 const AnnonceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getAnnonceById } = useAnnonces();
+  const [annonce, setAnnonce] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const annonce = getAnnonceById(id!);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        if (!id) {
+          setAnnonce(null);
+          return;
+        }
+        const item = await getAnnonceById(id);
+        if (mounted) setAnnonce(item ?? null);
+      } catch (e: any) {
+        console.error('Erreur chargement annonce:', e);
+        if (mounted) setError("Impossible de charger l'annonce");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false };
+  }, [id, getAnnonceById]);
 
-  if (!annonce) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-violet-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!annonce || error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -49,7 +79,20 @@ const AnnonceDetail: React.FC = () => {
     }
   };
 
-  const isGP = annonce.type === 'GP';
+  const isGP = annonce.type === 'GP' || annonce.type === 'gp';
+
+  // Normalisation des champs potentiellement snake_case
+  const villeDepart = annonce.villeDepart || annonce.ville_depart || annonce.ville_de_depart || '';
+  const villeArrivee = annonce.villeArrivee || annonce.ville_arrivee || annonce.ville_d_arrivee || '';
+  const dateStr = annonce.date || annonce.date_annonce || annonce.created_at;
+  const poids = annonce.poids || annonce.poids_kg || annonce.weight || 0;
+  const prixKg = annonce.prix || annonce.prix_kg || null;
+  const moyenTransport = annonce.moyenTransport || annonce.moyen_transport || undefined;
+
+  const user = annonce.user || {};
+  const userName = user.full_name || user.name || 'Utilisateur';
+  const userPhone = user.phone || '';
+  const userWhatsapp = user.whatsapp_number || user.whatsapp || '';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -76,15 +119,15 @@ const AnnonceDetail: React.FC = () => {
                   {isGP ? 'GP Voyage' : 'Expéditeur'}
                 </span>
                 <h1 className="text-3xl font-bold">
-                  {annonce.villeDepart} → {annonce.villeArrivee}
+                  {villeDepart} → {villeArrivee}
                 </h1>
               </div>
               
-              {isGP && annonce.moyenTransport && (
+              {isGP && moyenTransport && (
                 <div className="text-right">
                   <div className="flex items-center space-x-2 text-white/80 mb-2">
-                    {getTransportIcon(annonce.moyenTransport)}
-                    <span className="capitalize">{annonce.moyenTransport}</span>
+                    {getTransportIcon(moyenTransport)}
+                    <span className="capitalize">{moyenTransport}</span>
                   </div>
                 </div>
               )}
@@ -106,7 +149,7 @@ const AnnonceDetail: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Date</p>
-                        <p className="font-medium">{formatDate(annonce.date)}</p>
+                        <p className="font-medium">{formatDate(dateStr)}</p>
                       </div>
                     </div>
 
@@ -117,19 +160,19 @@ const AnnonceDetail: React.FC = () => {
                       <div>
                         <p className="text-sm text-gray-600">Poids</p>
                         <p className="font-medium">
-                          {annonce.poids} kg {isGP ? 'disponible' : 'à envoyer'}
+                          {poids} kg {isGP ? 'disponible' : 'à envoyer'}
                         </p>
                       </div>
                     </div>
 
-                    {annonce.prix && (
+                    {prixKg && (
                       <div className="flex items-center space-x-3">
                         <div className="bg-green-100 p-2 rounded-lg">
                           <Euro className="h-5 w-5 text-green-600" />
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Prix</p>
-                          <p className="font-medium text-green-600">{annonce.prix}€/kg</p>
+                          <p className="font-medium text-green-600">{prixKg}€/kg</p>
                         </div>
                       </div>
                     )}
@@ -144,7 +187,7 @@ const AnnonceDetail: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <div className="w-3 h-3 bg-violet-600 rounded-full"></div>
                         <div>
-                          <p className="font-medium text-gray-900">{annonce.villeDepart}</p>
+                          <p className="font-medium text-gray-900">{villeDepart}</p>
                           <p className="text-sm text-gray-600">Départ</p>
                         </div>
                       </div>
@@ -160,7 +203,7 @@ const AnnonceDetail: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <div className="w-3 h-3 bg-green-600 rounded-full"></div>
                         <div>
-                          <p className="font-medium text-gray-900">{annonce.villeArrivee}</p>
+                          <p className="font-medium text-gray-900">{villeArrivee}</p>
                           <p className="text-sm text-gray-600">Arrivée</p>
                         </div>
                       </div>
@@ -169,10 +212,10 @@ const AnnonceDetail: React.FC = () => {
                 </div>
 
                 {/* Description */}
-                {!isGP && annonce.description && (
+                {!isGP && (annonce.description || annonce.description_colis) && (
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Description du colis</h2>
-                    <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{annonce.description}</p>
+                    <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{annonce.description || annonce.description_colis}</p>
                   </div>
                 )}
               </div>
@@ -190,7 +233,7 @@ const AnnonceDetail: React.FC = () => {
                       <User className="h-6 w-6 text-violet-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{annonce.user.name}</p>
+                      <p className="font-medium text-gray-900">{userName}</p>
                       <p className="text-sm text-gray-600">Membre GP Connect</p>
                     </div>
                   </div>
@@ -198,14 +241,14 @@ const AnnonceDetail: React.FC = () => {
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Phone className="h-4 w-4" />
-                      <span>{annonce.user.phone}</span>
+                      <span>{userPhone || 'Non renseigné'}</span>
                     </div>
                   </div>
 
                   {/* Contact Buttons */}
                   <div className="space-y-3">
                     <a
-                      href={`https://wa.me/${annonce.user.whatsapp.replace(/\s+/g, '').replace('+', '')}`}
+                      href={`https://wa.me/${(userWhatsapp || '').replace(/\s+/g, '').replace('+', '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
@@ -215,7 +258,7 @@ const AnnonceDetail: React.FC = () => {
                     </a>
                     
                     <a
-                      href={`tel:${annonce.user.phone}`}
+                      href={`tel:${userPhone}`}
                       className="w-full bg-violet-600 text-white py-3 px-4 rounded-lg hover:bg-violet-700 transition-colors flex items-center justify-center space-x-2"
                     >
                       <Phone className="h-5 w-5" />

@@ -9,6 +9,7 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -28,6 +29,7 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage('');
 
     // Validation simple côté client
     if (formData.password !== formData.confirmPassword) {
@@ -35,21 +37,46 @@ const Register: React.FC = () => {
       setIsLoading(false);
       return;
     }
+    if (formData.password.length < 6) {
+      setErrorMessage('Le mot de passe doit contenir au moins 6 caractères.');
+      setIsLoading(false);
+      return;
+    }
 
     try {
+      // Normalize inputs
+      const normalizedEmail = formData.email.trim().toLowerCase();
+      const normalizedName = formData.name.trim();
+      const normalizedPhone = formData.phone.trim();
+
+      console.groupCollapsed('[Register] Signup attempt');
+      console.debug('email:', normalizedEmail);
+      console.debug('phone length:', normalizedPhone.length);
+      console.groupEnd();
+
       // 1) Créer le compte d'authentification (auth.users)
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: normalizedEmail,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name,
-            whatsapp_number: formData.phone,
-          },
-        },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        const msg = authError.message || '';
+        // Common opaque messages observed from Supabase
+        if (
+          msg.toLowerCase().includes('duplicate') ||
+          msg.toLowerCase().includes('already') ||
+          msg.toLowerCase().includes('database error saving new user')
+        ) {
+          setErrorMessage('Cet email est déjà utilisé.');
+        } else if (msg.toLowerCase().includes('password')) {
+          setErrorMessage('Le mot de passe doit contenir au moins 6 caractères.');
+        } else {
+          setErrorMessage(`Erreur d'inscription : ${msg || 'Veuillez réessayer.'}`);
+        }
+        setIsLoading(false);
+        return;
+      }
 
       const userId = authData?.user?.id;
 
@@ -57,22 +84,36 @@ const Register: React.FC = () => {
       if (userId) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: userId,
-            full_name: formData.name,
-            email: formData.email,
-            whatsapp_number: formData.phone,
-            phone: formData.phone,
-            role: 'expediteur',
-          });
-        if (profileError) throw profileError;
+          .upsert(
+            [{
+              id: userId,
+              full_name: normalizedName,
+              whatsapp_number: normalizedPhone,
+              whatsapp: normalizedPhone,
+              phone: normalizedPhone,
+              role: 'expediteur',
+              email: normalizedEmail,
+            }],
+            { onConflict: 'id' }
+          );
+        if (profileError) {
+          setErrorMessage(profileError.message || 'Erreur lors de la création du profil.');
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        setErrorMessage("Impossible de créer l'utilisateur.");
+        setIsLoading(false);
+        return;
       }
 
-      toast.success('Inscription réussie ! Vérifiez votre email pour confirmer votre compte.');
-      navigate('/login');
+      toast.success('Inscription réussie !');
+      navigate('/email-confirmation', { state: { email: normalizedEmail } });
     } catch (error: any) {
       console.error('Erreur lors de l\'inscription:', error);
-      toast.error(error.message || 'Une erreur est survenue lors de l\'inscription');
+      if (!errorMessage) {
+        setErrorMessage('Une erreur inattendue est survenue.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +152,11 @@ const Register: React.FC = () => {
             </Link>
           </p>
         </div>
+        {errorMessage && (
+          <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
 
         <div className="mt-8">
           <button
