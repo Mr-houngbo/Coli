@@ -31,14 +31,37 @@ const Conversations: React.FC = () => {
   const getOtherParticipantName = (conversation: Conversation) => {
     if (!conversation.participants || !user) return 'Utilisateur inconnu';
     
+    // Vérifier si les participants sont chargés correctement
+    if (conversation.participants.length === 0) {
+      console.warn('Aucun participant trouvé dans la conversation', conversation.id);
+      return 'Utilisateur inconnu';
+    }
+    
+    // Si l'utilisateur actuel n'est pas défini, retourner le premier participant
+    if (!user.id) {
+      const firstParticipant = conversation.participants[0];
+      return firstParticipant?.profile?.full_name || 'Utilisateur';
+    }
+    
     // Trouver l'autre participant (pas l'utilisateur actuel)
     const otherParticipant = conversation.participants.find(p => p.user_id !== user.id);
     
-    if (otherParticipant && otherParticipant.profile) {
-      return otherParticipant.profile.full_name || 'Utilisateur';
+    // Si on ne trouve pas d'autre participant (peut arriver si l'utilisateur courant n'est pas dans la liste)
+    // On prend le premier participant qui n'est pas l'utilisateur actuel
+    const participantToShow = otherParticipant || conversation.participants[0];
+    
+    if (participantToShow?.profile) {
+      return participantToShow.profile.full_name || 'Utilisateur';
     }
     
-    return 'Utilisateur inconnu';
+    // Si on a un user1_id ou user2_id mais pas de profil, on peut essayer de les utiliser
+    if (conversation.user1_id && conversation.user2_id) {
+      const otherUserId = conversation.user1_id === user.id ? conversation.user2_id : conversation.user1_id;
+      return `Utilisateur ${otherUserId.substring(0, 6)}...`;
+    }
+    
+    console.warn('Impossible de déterminer le nom du participant pour la conversation', conversation.id);
+    return 'Utilisateur';
   };
 
   // Fonction pour obtenir les initiales du nom

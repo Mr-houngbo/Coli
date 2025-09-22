@@ -33,28 +33,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Version simplifiée de fetchProfile pour déboguer
+  // Fonction utilitaire pour gérer les retries avec backoff exponentiel
+  const retryWithBackoff = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    initialDelay = 1000
+  ): Promise<T> => {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Augmenter le délai à chaque tentative (backoff exponentiel)
+        if (attempt > 0) {
+          const delay = initialDelay * Math.pow(2, attempt - 1);
+          console.log(`[Auth] Retry attempt ${attempt + 1} after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
+        // Essayer d'exécuter la fonction
+        return await fn();
+      } catch (error) {
+        console.warn(`[Auth] Attempt ${attempt + 1} failed:`, error);
+        lastError = error as Error;
+        
+        // Ne pas réessayer pour certaines erreurs
+        if (
+          error instanceof Error && 
+          (error.message.includes('timeout') || error.message.includes('NetworkError'))
+        ) {
+          continue;
+        }
+        
+        throw error; // Propager les autres erreurs
+      }
+    }
+    
+    throw lastError || new Error('Max retries reached');
+  };
+
+  // Version améliorée de fetchProfile avec retry et backoff
   const fetchProfile = async (userId: string) => {
     console.log(`[Auth] fetchProfile starting for user ${userId}`);
     
     try {
-      // Timeout simple de 5 secondes
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-      );
+      // Fonction pour tenter de récupérer le profil
+      const attemptFetch = async () => {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // Timeout réduit à 10s car on a les retries
+        );
+        
+        const fetchPromise = supabase
+          .from('profiles')
+          .select('id, full_name, whatsapp_number, phone, role, created_at, updated_at')
+          .eq('id', userId)
+          .single();
+        
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+        
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+        
+        return { data };
+      };
       
-      const fetchPromise = supabase
-        .from('profiles')
-        .select('id, full_name, whatsapp_number, phone, role, created_at, updated_at')
-        .eq('id', userId)
-        .single();
+      // Essayer de récupérer le profil avec retry
+      const { data } = await retryWithBackoff(attemptFetch, 3, 1000);
       
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
-      
-      if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-        console.error('[Auth] Error fetching profile:', error);
-        throw error;
-      }
+      // La gestion d'erreur est maintenant dans attemptFetch
 
       if (data) {
         console.log(`[Auth] Profile loaded successfully:`, data);
