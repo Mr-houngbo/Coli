@@ -16,6 +16,11 @@ import Profile from './pages/Profile';
 import AnnoncesList from './pages/AnnoncesList';
 import EmailConfirmation from './pages/EmailConfirmation';
 import Settings from './pages/Settings';
+import Conversations from './pages/Conversations';
+import ChatPage from './pages/ChatPage';
+import { ConversationProvider } from './contexts/ConversationContext';
+import Voyageurs from './pages/Voyageurs';
+import Expediteurs from './pages/Expediteurs';
 
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -43,7 +48,7 @@ function AppContent() {
   }
 
   return (
-    <>
+    <ConversationProvider>
       <Header />
       <main>
         <Routes>
@@ -54,6 +59,9 @@ function AppContent() {
           <Route path="/annonces/:id" element={<AnnonceDetail />} />
           <Route path="/email-confirmation" element={<EmailConfirmation />} />
           
+          <Route path="/voyageurs" element={<Voyageurs />} />
+          <Route path="/expediteurs" element={<Expediteurs />} />
+
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
@@ -83,6 +91,17 @@ function AppContent() {
               <Settings />
             </ProtectedRoute>
           } />
+
+          <Route path="/conversations" element={
+            <ProtectedRoute>
+              <Conversations />
+            </ProtectedRoute>
+          } />
+          <Route path="/conversations/:id" element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          } />
         </Routes>
       </main>
 
@@ -98,7 +117,7 @@ function AppContent() {
         pauseOnHover
         theme="light"
       />
-    </>
+    </ConversationProvider>
   );
 }
 

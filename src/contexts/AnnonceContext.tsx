@@ -9,6 +9,7 @@ interface AnnonceContextType {
   getUserAnnonces: (userId: string) => Promise<Annonce[]>;
   getAllAnnonces: () => Promise<Annonce[]>;
   getAnnonceById: (id: string) => Promise<Annonce | undefined>;
+  takeAnnonce: (annonceId: string, currentUserId: string) => Promise<{ conversationId: string } | null>;
   loading: boolean;
 }
 
@@ -96,6 +97,44 @@ export const AnnonceProvider: React.FC<AnnonceProviderProps> = ({ children }) =>
     }
   };
 
+  const takeAnnonce = async (annonceId: string, currentUserId: string): Promise<{ conversationId: string } | null> => {
+    try {
+      // Récupérer l'annonce pour obtenir son propriétaire
+      const { data: aData, error: aErr } = await supabase
+        .from('annonces')
+        .select('*')
+        .eq('id', annonceId)
+        .single();
+      if (aErr || !aData) throw aErr || new Error('Annonce introuvable');
+
+      // Mettre à jour le statut à 'prise'
+      const { error: updErr } = await supabase
+        .from('annonces')
+        .update({ status: 'prise' })
+        .eq('id', annonceId);
+      if (updErr) throw updErr;
+
+      // Créer une conversation entre le propriétaire de l'annonce et l'utilisateur courant
+      const ownerId = (aData as any).user_id;
+      const user1 = ownerId;
+      const user2 = currentUserId;
+      const { data: conv, error: convErr } = await supabase
+        .from('conversations')
+        .insert([{ annonce_id: annonceId, user1_id: user1, user2_id: user2 }])
+        .select('id')
+        .single();
+      if (convErr) throw convErr;
+
+      // Mettre à jour le cache local des annonces
+      setAnnonces(prev => prev.map(a => a.id === annonceId ? ({ ...a, status: 'prise' } as any) : a));
+
+      return { conversationId: conv!.id as string };
+    } catch (e) {
+      console.error('Erreur lors de la prise de l\'annonce:', e);
+      return null;
+    }
+  };
+
   const getAllAnnonces = async () => {
     try {
       const { data: annoncesData, error: annoncesError } = await supabase
@@ -164,6 +203,7 @@ export const AnnonceProvider: React.FC<AnnonceProviderProps> = ({ children }) =>
     getUserAnnonces,
     getAnnonceById,
     getAllAnnonces,
+    takeAnnonce,
     loading,
   };
 

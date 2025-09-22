@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import AnnonceCard from '../components/AnnonceCard';
 
 type Annonce = {
   id: string;
@@ -31,7 +32,11 @@ export default function AnnoncesList() {
           throw error;
         }
 
-        const items = (data || []) as Annonce[];
+        let items = (data || []) as Annonce[];
+        // Filtrer uniquement les annonces actives si le champ status existe
+        if (items.length && Object.prototype.hasOwnProperty.call(items[0], 'status')) {
+          items = items.filter((a: any) => (a.status ?? 'active') === 'active');
+        }
         items.sort((a, b) => {
           const da = new Date((a as any).created_at || (a as any).date_annonce || 0).getTime();
           const db = new Date((b as any).created_at || (b as any).date_annonce || 0).getTime();
@@ -65,16 +70,7 @@ export default function AnnoncesList() {
     };
   }, []);
 
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
-  };
+  
 
   if (loading) {
     return (
@@ -130,57 +126,7 @@ export default function AnnoncesList() {
       ) : (
         <div className="space-y-4">
           {annonces.map((annonce) => (
-            <div
-              key={annonce.id}
-              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="px-4 py-5 sm:px-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    {annonce.type === 'GP' ? 'Gros porteur' : 'Expéditeur'} : {annonce.ville_depart} → {annonce.ville_arrivee}
-                  </h3>
-                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-800">
-                    {annonce.type}
-                  </span>
-                </div>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Date de départ</p>
-                    <p className="font-medium">{formatDate(annonce.date_annonce)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Poids</p>
-                    <p className="font-medium">{annonce.poids} kg</p>
-                  </div>
-                  {annonce.prix_kg && (
-                    <div>
-                      <p className="text-sm text-gray-500">Prix au kilo</p>
-                      <p className="font-medium">{annonce.prix_kg} CFA/kg</p>
-                    </div>
-                  )}
-                  {annonce.transport && (
-                    <div>
-                      <p className="text-sm text-gray-500">Type de transport</p>
-                      <p className="font-medium capitalize">{annonce.transport}</p>
-                    </div>
-                  )}
-                </div>
-                {annonce.description && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-500">Description</p>
-                    <p className="mt-1 text-gray-700">{annonce.description}</p>
-                  </div>
-                )}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
-                  >
-                    Contacter
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AnnonceCard key={annonce.id} annonce={annonce as any} />
           ))}
         </div>
       )}

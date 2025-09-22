@@ -17,6 +17,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab = 'dashboard' }) => {
   }, [location.pathname]);
 
   // (Optionnel) on pourrait adapter au resize, mais on laisse l'utilisateur contrôler manuellement
+  
+  // Ouvrir la sidebar via un évènement global (déclenché par le Header)
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('open-sidebar', handler as any);
+    return () => window.removeEventListener('open-sidebar', handler as any);
+  }, []);
 
   const menuItems = [
     {

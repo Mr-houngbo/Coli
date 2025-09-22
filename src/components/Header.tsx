@@ -23,10 +23,25 @@ const Header: React.FC = () => {
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <h1 className="text-2xl font-bold text-violet-600">GP Connect</h1>
-          </Link>
+          {/* Logo + Bouton Menu (ouvre Sidebar) */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.dispatchEvent(new Event('open-sidebar'));
+                } catch {}
+              }}
+              className="p-2 rounded-lg hover:bg-gray-100"
+              aria-label="Ouvrir le menu latéral"
+              title="Ouvrir le menu"
+            >
+              <Menu className="h-6 w-6 text-gray-700" />
+            </button>
+            <Link to="/" className="flex items-center">
+              <h1 className="text-2xl font-bold text-violet-600">GP Connect</h1>
+            </Link>
+          </div>
 
           {/* Navigation Desktop */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -60,7 +75,7 @@ const Header: React.FC = () => {
                 <div className="relative group">
                   <button className="flex items-center space-x-2 text-gray-600 hover:text-violet-600">
                     <User className="h-5 w-5" />
-                    <span className="truncate max-w-20">{user?.name}</span>
+                    <span className="truncate max-w-20">{user?.email?.split('@')[0] || 'Moi'}</span>
                   </button>
                   
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">

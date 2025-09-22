@@ -99,12 +99,6 @@ const Dashboard: React.FC = () => {
     
     return (
       <div>
-        {!profile && (
-          <div className="mb-4 p-3 rounded-md bg-yellow-50 border border-yellow-200 text-sm text-yellow-900">
-            Votre profil n'est pas encore complet. Certaines informations par défaut sont affichées.
-            <Link to="/profile" className="ml-2 underline">Compléter mon profil</Link>
-          </div>
-        )}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -211,10 +205,10 @@ const Dashboard: React.FC = () => {
               Monétisez vos voyages en transportant des colis pour d'autres utilisateurs
             </p>
             <Link
-              to="/annonces/nouvelle"
+              to="/voyageurs"
               className="bg-white text-violet-600 px-4 py-2 rounded font-medium hover:bg-gray-50 transition-colors inline-block"
             >
-              Je voyage (GP)
+              Voir les voyageurs (GP)
             </Link>
           </div>
 
@@ -224,10 +218,10 @@ const Dashboard: React.FC = () => {
               Trouvez un GP de confiance pour envoyer vos colis rapidement
             </p>
             <Link
-              to="/annonces"
+              to="/expediteurs"
               className="bg-white text-blue-600 px-4 py-2 rounded font-medium hover:bg-gray-50 transition-colors inline-block"
             >
-              Voir les GP
+              Voir les expéditeurs
             </Link>
           </div>
         </div>

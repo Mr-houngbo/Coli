@@ -75,13 +75,23 @@ const Profile: React.FC = () => {
     }
   };
 
-  if (!user || !profile) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
       </div>
     );
   }
+
+  const safeProfile = profile || {
+    id: user.id,
+    full_name: user.email?.split('@')[0] || 'Utilisateur',
+    phone: '',
+    whatsapp_number: '',
+    role: 'expediteur',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  } as any;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -95,9 +105,9 @@ const Profile: React.FC = () => {
                   <User className="h-8 w-8" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">{profile.full_name}</h1>
+                  <h1 className="text-3xl font-bold">{safeProfile.full_name}</h1>
                   <p className="text-violet-100">
-                    {profile.role === 'gp' ? 'GP' : 'Expéditeur'} sur GP Connect
+                    {safeProfile.role === 'gp' ? 'GP' : 'Expéditeur'} sur GP Connect
                   </p>
                 </div>
               </div>
@@ -123,9 +133,9 @@ const Profile: React.FC = () => {
                 
                 <Formik
                   initialValues={{
-                    name: profile.full_name,
+                    name: safeProfile.full_name,
                     email: user.email || '',
-                    phone: profile.phone || '',
+                    phone: safeProfile.phone || '',
                   }}
                   validationSchema={ProfileSchema}
                   onSubmit={handleSubmit}

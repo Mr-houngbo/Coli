@@ -21,10 +21,27 @@ export interface Annonce {
   prix_kg?: number;
   transport?: 'avion' | 'voiture' | 'bus' | 'train';
   description?: string;
+  status?: 'active' | 'prise' | 'terminee';
   statut?: 'en_attente' | 'validee' | 'terminee' | 'annulee';
   created_at: string;
   updated_at: string;
   user?: Profile; // Jointure avec la table profiles
+}
+
+export interface Conversation {
+  id: string;
+  annonce_id: string;
+  user1_id: string;
+  user2_id: string;
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
 }
 
 export interface User {
