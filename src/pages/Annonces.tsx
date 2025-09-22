@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { useAnnonces } from '../contexts/AnnonceContext';
+import { useAnnonce } from '../contexts/AnnonceContext';
 import AnnonceCard from '../components/AnnonceCard';
 import { Search, Filter } from 'lucide-react';
 
 const Annonces: React.FC = () => {
-  const { annonces } = useAnnonces();
+  const { annonces } = useAnnonce();
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     type: '',

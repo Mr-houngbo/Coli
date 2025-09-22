@@ -33,139 +33,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Version simplifiée de fetchProfile pour déboguer
   const fetchProfile = async (userId: string) => {
-    const PROFILE_TIMEOUT_MS = 12000;
-    const RETRY_TIMEOUT_MS = 15000;
-    const isTimeout = (e: any) => typeof e?.message === 'string' && e.message.startsWith('timeout:');
-    const withTimeout = async <T,>(fn: () => PromiseLike<T>, ms = 5000, label = 'op') => {
-      let timer: any;
-      const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`timeout:${label}:${ms}ms`)), ms);
-      });
-      try {
-        const op = Promise.resolve(fn());
-        const result = await Promise.race([op, timeout]);
-        return result as T;
-      } finally {
-        clearTimeout(timer);
-      }
-    };
-
+    console.log(`[Auth] fetchProfile starting for user ${userId}`);
+    
     try {
-      // Try to load existing profile
-      console.log('[Auth] fetchProfile select start for', userId);
-      let respSelect: any = await withTimeout(
-        () => (supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single() as any),
-        PROFILE_TIMEOUT_MS,
-        'profiles.select'
+      // Timeout simple de 5 secondes
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
       );
-      const data = respSelect?.data;
-      const error = respSelect?.error;
-      console.log('[Auth] fetchProfile select done for', userId, 'error:', !!error);
+      
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('id, full_name, whatsapp_number, phone, role, created_at, updated_at')
+        .eq('id', userId)
+        .single();
+      
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+        console.error('[Auth] Error fetching profile:', error);
+        throw error;
+      }
 
-      if (!error && data) {
-        setProfile(data as any);
+      if (data) {
+        console.log(`[Auth] Profile loaded successfully:`, data);
+        setProfile(data as Profile);
         return data;
       }
 
-      // Retry une fois en cas de timeout
-      if (!data && (isTimeout(error) || isTimeout(respSelect))) {
-        console.warn('[Auth] fetchProfile select timeout, retrying once...');
-        try {
-          respSelect = await withTimeout(
-            () => (supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', userId)
-              .single() as any),
-            RETRY_TIMEOUT_MS,
-            'profiles.select.retry'
-          );
-        } catch (e) {
-          console.warn('[Auth] fetchProfile retry error:', e);
-        }
-        const d2 = respSelect?.data;
-        const e2 = respSelect?.error;
-        if (!e2 && d2) {
-          setProfile(d2 as any);
-          return d2;
-        }
-      }
-
-      // If profile is missing, attempt to auto-create a minimal one
-      const fullName = (typeof (user as any)?.user_metadata?.full_name === 'string' && (user as any)?.user_metadata?.full_name)
-        || (user as any)?.user_metadata?.name
-        || (user as any)?.email?.split('@')[0]
-        || 'Utilisateur';
-
-      const phoneMeta = (user as any)?.user_metadata?.phone || (user as any)?.user_metadata?.whatsapp || '';
-
-      const upsertPayload: any = {
+      // Si pas de profil trouvé, créer un profil minimal
+      console.log(`[Auth] No profile found, creating minimal profile...`);
+      
+      const profileData = {
         id: userId,
-        full_name: fullName,
-        phone: phoneMeta,
-        whatsapp_number: phoneMeta,
-        role: 'expediteur',
+        full_name: user?.user_metadata?.full_name || user?.user_metadata?.name || 'Utilisateur',
+        phone: user?.user_metadata?.phone || '',
+        whatsapp_number: user?.user_metadata?.phone || '',
+        role: 'expediteur' as const,
       };
 
-      console.log('[Auth] fetchProfile upsert start');
-      await withTimeout(
-        () => (supabase.from('profiles').upsert([upsertPayload], { onConflict: 'id' }) as any),
-        PROFILE_TIMEOUT_MS,
-        'profiles.upsert'
-      );
-      console.log('[Auth] fetchProfile upsert done');
-
-      // Re-fetch after upsert
-      console.log('[Auth] fetchProfile reselect start');
-      let respSelect2: any = await withTimeout(
-        () => (supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single() as any),
-        PROFILE_TIMEOUT_MS,
-        'profiles.reselect'
-      );
-      const data2 = respSelect2?.data;
-      console.log('[Auth] fetchProfile reselect done, has data:', !!data2);
-
-      if (data2) {
-        setProfile(data2 as any);
-        return data2;
+      const { error: upsertError } = await supabase
+        .from('profiles')
+        .upsert([profileData], { onConflict: 'id' });
+      
+      if (upsertError) {
+        console.error('[Auth] Error creating profile:', upsertError);
+        throw upsertError;
       }
 
-      // Retry reselect en cas de timeout
-      if (!data2 && (isTimeout(respSelect2))) {
-        console.warn('[Auth] fetchProfile reselect timeout, retrying once...');
-        try {
-          respSelect2 = await withTimeout(
-            () => (supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', userId)
-              .single() as any),
-            RETRY_TIMEOUT_MS,
-            'profiles.reselect.retry'
-          );
-        } catch (e) {
-          console.warn('[Auth] fetchProfile reselect retry error:', e);
-        }
-        const d3 = respSelect2?.data;
-        if (d3) {
-          setProfile(d3 as any);
-          return d3;
-        }
-      }
-      // Si toujours rien, laisser profile à null
-      setProfile(null);
-      return null;
+      console.log('[Auth] Profile created successfully');
+      setProfile(profileData as Profile);
+      return profileData;
+      
     } catch (error) {
-      console.error('Error fetching/creating profile:', error);
+      console.error('[Auth] fetchProfile error:', error);
+      // Ne pas bloquer l'app si le profil échoue
       setProfile(null);
       return null;
     }
@@ -178,70 +101,82 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Récupérer la session au premier rendu
-    const getSession = async () => {
+    console.log('[Auth] AuthProvider useEffect triggered');
+    
+    const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('[Auth] getSession user:', session?.user || null);
+        console.log('[Auth] Getting initial session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('[Auth] Session error:', error);
+          setError("Impossible de se connecter au serveur");
+          return;
+        }
+
+        console.log('[Auth] Initial session:', session?.user ? 'User found' : 'No user');
         setUser(session?.user ?? null);
         
         if (session?.user?.id) {
-          console.log('[Auth] fetching profile for user id from getSession:', session.user.id);
+          console.log('[Auth] Fetching profile for user:', session.user.id);
           await fetchProfile(session.user.id);
         }
+        
       } catch (error) {
-        console.error("Erreur lors de la récupération de la session:", error);
+        console.error("[Auth] Init error:", error);
         setError("Impossible de se connecter au serveur");
-        setUser(null);
-        setProfile(null);
       } finally {
+        console.log('[Auth] Setting loading to false');
         setLoading(false);
-        console.log('[Auth] loading set to false after getSession');
       }
     };
     
-    getSession();
+    // Initialiser immédiatement
+    initAuth();
 
     // Écouter les changements de session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        console.log('[Auth] onAuthStateChange event:', _event, 'user:', session?.user || null);
-        try {
-          setUser(session?.user ?? null);
-          if (session?.user?.id) {
-            console.log('[Auth] fetching profile for user id from onAuthStateChange:', session.user.id);
-            await fetchProfile(session.user.id);
-            setError(null);
-          } else {
-            setProfile(null);
-          }
-        } catch (err) {
-          console.error('Erreur dans onAuthStateChange:', err);
-          setError('Impossible de se connecter au serveur');
-        } finally {
-          setLoading(false);
-          console.log('[Auth] loading set to false after onAuthStateChange');
+      async (event, session) => {
+        console.log('[Auth] Auth state change:', event, session?.user ? 'User found' : 'No user');
+        
+        setUser(session?.user ?? null);
+        
+        if (session?.user?.id) {
+          console.log('[Auth] Fetching profile for user from auth change:', session.user.id);
+          await fetchProfile(session.user.id);
+          setError(null);
+        } else {
+          setProfile(null);
         }
+        
+        // S'assurer que loading est toujours false après les changements d'auth
+        setLoading(false);
       }
     );
 
     return () => {
+      console.log('[Auth] Cleaning up subscription');
       subscription.unsubscribe();
     };
   }, []);
 
-  // Debug logs to observe state transitions
+  // Forcer loading à false après 10 secondes maximum (fallback de sécurité)
   useEffect(() => {
-    console.log('[Auth] loading state:', loading);
-  }, [loading]);
+    const fallbackTimer = setTimeout(() => {
+      if (loading) {
+        console.warn('[Auth] Forcing loading to false after 10s timeout');
+        setLoading(false);
+      }
+    }, 10000);
 
-  useEffect(() => {
-    console.log('[Auth] user state:', user);
-  }, [user]);
+    return () => clearTimeout(fallbackTimer);
+  }, [loading]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Authentifier avec Supabase Auth
+      setLoading(true);
+      console.log('[Auth] Login attempt for:', email);
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -249,17 +184,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
       
-      // Le profile sera automatiquement chargé via l'écouteur d'état d'authentification
+      console.log('[Auth] Login successful');
       return true;
     } catch (error: any) {
-      console.error('Erreur de connexion:', error.message);
+      console.error('[Auth] Login error:', error.message);
+      setError(error.message);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const register = async (data: { email: string; password: string; name: string; phone: string }): Promise<boolean> => {
     try {
-      // 1. Créer le compte d'authentification
+      setLoading(true);
+      console.log('[Auth] Register attempt for:', data.email);
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -273,7 +213,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (authError) throw authError;
 
-      // Créer le profil utilisateur après l'inscription
       if (authData.user) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -282,21 +221,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             full_name: data.name,
             phone: data.phone,
             whatsapp_number: data.phone,
-            role: 'expediteur' // Rôle par défaut
+            role: 'expediteur'
           });
           
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.warn('[Auth] Profile creation error during register:', profileError);
+          // Ne pas échouer l'inscription si le profil échoue
+        }
       }
 
+      console.log('[Auth] Registration successful');
       return true;
     } catch (error: any) {
-      console.error('Erreur lors de l\'inscription:', error);
+      console.error('[Auth] Register error:', error);
+      setError(error.message);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const loginWithGoogle = async (): Promise<boolean> => {
     try {
+      console.log('[Auth] Google login attempt');
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -307,19 +255,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
       return true;
     } catch (error: any) {
-      console.error('Erreur lors de la connexion avec Google:', error);
+      console.error('[Auth] Google login error:', error);
+      setError(error.message);
       return false;
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
+      console.log('[Auth] Logout attempt');
       await supabase.auth.signOut();
       setUser(null);
+      setProfile(null);
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
+      console.error('[Auth] Logout error:', error);
     }
   };
+
+  // Debug logs
+  useEffect(() => {
+    console.log('[Auth] State update - Loading:', loading, 'User:', !!user, 'Profile:', !!profile, 'Error:', error);
+  }, [loading, user, profile, error]);
 
   const value = {
     user,

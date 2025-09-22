@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
-import { useAnnonces } from '../contexts/AnnonceContext';
+import { useAnnonce } from '../contexts/AnnonceContext';
 import { User, Phone, Mail, Edit2, Save, X, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -14,13 +14,16 @@ const ProfileSchema = Yup.object().shape({
     .email('Adresse email invalide')
     .required('L\'email est requis'),
   phone: Yup.string()
-    .matches(/^(\+33|0)[1-9](\d{8})$/, 'Numéro de téléphone français invalide')
+    .matches(
+      /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]*$/,
+      'Numéro de téléphone invalide. Exemples: +221 77 123 45 67, 00221771234567, 771234567'
+    )
     .required('Le numéro WhatsApp est requis'),
 });
 
 const Profile: React.FC = () => {
   const { user, profile, refreshProfile } = useAuth();
-  const { getUserAnnonces } = useAnnonces();
+  const { getUserAnnonces } = useAnnonce();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -193,15 +196,16 @@ const Profile: React.FC = () => {
                           Numéro WhatsApp
                         </label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Phone className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <span className="text-gray-500">+</span>
                           </div>
                           <Field
                             id="phone"
                             name="phone"
                             type="tel"
+                            placeholder="221 77 123 45 67"
                             disabled={!isEditing}
-                            className={`block w-full pl-10 pr-3 py-2 border rounded-lg ${
+                            className={`block w-full pl-8 pr-3 py-2 border rounded-lg ${
                               isEditing 
                                 ? 'border-gray-300 focus:ring-violet-500 focus:border-violet-500' 
                                 : 'border-gray-200 bg-gray-50 text-gray-700'

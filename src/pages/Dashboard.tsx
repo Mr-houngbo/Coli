@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Annonce, Profile } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { useAnnonces } from '../contexts/AnnonceContext';
+import { useAnnonce } from '../contexts/AnnonceContext';
 import Sidebar from '../components/Sidebar';
 import AnnonceCard from '../components/AnnonceCard';
 import { Plus, Package, TrendingUp, Users, List, User, Loader2 } from 'lucide-react';
@@ -11,7 +11,7 @@ type DashboardTab = 'dashboard' | 'mes-annonces' | 'profile';
 
 const Dashboard: React.FC = () => {
   const { user, profile } = useAuth();
-  const { getUserAnnonces, loading: annoncesLoading } = useAnnonces();
+  const { getUserAnnonces, loading: annoncesLoading } = useAnnonce();
   const location = useLocation();
   const navigate = useNavigate();
   const [userAnnonces, setUserAnnonces] = useState<Annonce[]>([]);

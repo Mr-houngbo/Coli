@@ -15,10 +15,10 @@ interface AnnonceContextType {
 
 const AnnonceContext = createContext<AnnonceContextType | undefined>(undefined);
 
-export const useAnnonces = () => {
+export const useAnnonce = () => {
   const context = useContext(AnnonceContext);
   if (!context) {
-    throw new Error('useAnnonces must be used within an AnnonceProvider');
+    throw new Error('useAnnonce must be used within an AnnonceProvider');
   }
   return context;
 };

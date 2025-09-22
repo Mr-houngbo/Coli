@@ -18,6 +18,7 @@ import EmailConfirmation from './pages/EmailConfirmation';
 import Settings from './pages/Settings';
 import Conversations from './pages/Conversations';
 import ChatPage from './pages/ChatPage';
+import Notifications from './pages/Notifications';
 import { ConversationProvider } from './contexts/ConversationContext';
 import Voyageurs from './pages/Voyageurs';
 import Expediteurs from './pages/Expediteurs';
@@ -48,7 +49,7 @@ function AppContent() {
   }
 
   return (
-    <ConversationProvider>
+    <>
       <Header />
       <main>
         <Routes>
@@ -102,6 +103,12 @@ function AppContent() {
               <ChatPage />
             </ProtectedRoute>
           } />
+          
+          <Route path="/notifications" element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          } />
         </Routes>
       </main>
 
@@ -117,23 +124,21 @@ function AppContent() {
         pauseOnHover
         theme="light"
       />
-    </ConversationProvider>
+    </>
   );
 }
 
 function App() {
-  console.log('App component rendering');
-  
   return (
-    <AuthProvider>
-      <AnnonceProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50">
+    <Router>
+      <AuthProvider>
+        <AnnonceProvider>
+          <ConversationProvider>
             <AppContent />
-          </div>
-        </Router>
-      </AnnonceProvider>
-    </AuthProvider>
+          </ConversationProvider>
+        </AnnonceProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

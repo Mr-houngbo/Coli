@@ -11,6 +11,7 @@ interface ConversationContextType {
   listMyConversations: () => Promise<Conversation[]>;
   fetchMessages: (conversationId: string) => Promise<Message[]>;
   sendMessage: (conversationId: string, content: string) => Promise<void>;
+  markConversationAsRead: (conversationId: string) => Promise<void>;
 }
 
 const ConversationContext = createContext<ConversationContextType | null>(null);
@@ -86,14 +87,44 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!user?.id) return [] as Conversation[];
     setLoading(true);
     try {
+      // Récupérer les conversations avec les participants et les détails de l'annonce
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select(`
+          *,
+          participants:conversation_participants(
+            user_id,
+            profile:profiles(
+              id,
+              full_name,
+              phone,
+              whatsapp_number,
+              role
+            )
+          ),
+          annonce:annonces(
+            id,
+            ville_depart,
+            ville_arrivee,
+            date_voyage,
+            user_id
+          )
+        `)
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
+      
       if (error) throw error;
-      setConversations((data || []) as Conversation[]);
-      return (data || []) as Conversation[];
+      
+      // Transformer les données pour correspondre au type Conversation
+      const formattedData = (data || []).map(conv => ({
+        ...conv,
+        participants: conv.participants || [],
+        annonce: conv.annonce || undefined,
+        participant_count: conv.participants?.length || 0
+      })) as Conversation[];
+      
+      setConversations(formattedData);
+      return formattedData;
     } catch (e) {
       console.error('listMyConversations error:', e);
       return [];
@@ -134,6 +165,37 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const markConversationAsRead = async (conversationId: string) => {
+    if (!user?.id) return;
+    
+    try {
+      // Mettre à jour le compteur de messages non lus côté serveur
+      const { error } = await supabase
+        .from('conversation_participants')
+        .update({ unread_count: 0 })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Mettre à jour l'état local
+      setConversations(prevConversations => 
+        prevConversations.map(conv => 
+          conv.id === conversationId 
+            ? { 
+                ...conv, 
+                unread_count: 0,
+                last_read_at: new Date().toISOString() 
+              } 
+            : conv
+        )
+      );
+    } catch (error) {
+      console.error('Erreur lors du marquage de la conversation comme lue:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     return () => {
       Object.values(channelsRef.current).forEach((ch) => supabase.removeChannel(ch));
@@ -142,8 +204,17 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <ConversationContext.Provider value={{ conversations, messages, loading, getOrCreateConversation, listMyConversations, fetchMessages, sendMessage }}>
+    <ConversationContext.Provider value={{
+      conversations,
+      messages,
+      loading,
+      getOrCreateConversation,
+      listMyConversations,
+      fetchMessages,
+      sendMessage,
+      markConversationAsRead,
+    }}>
       {children}
     </ConversationContext.Provider>
   );
-}
+};

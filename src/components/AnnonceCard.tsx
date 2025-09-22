@@ -4,7 +4,7 @@ import { Annonce } from '../types';
 import { Calendar, MapPin, Package, Plane, Car, Bus, MessageSquare, CircleDollarSign, CheckCircle2, User as UserIcon } from 'lucide-react';
 import { useConversations } from '../contexts/ConversationContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useAnnonces } from '../contexts/AnnonceContext';
+import { useAnnonce } from '../contexts/AnnonceContext';
 
 interface AnnonceCardProps {
   annonce: Annonce;
@@ -14,7 +14,7 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { getOrCreateConversation } = useConversations();
-  const { takeAnnonce } = useAnnonces();
+  const { takeAnnonce } = useAnnonce();
   const getTransportIcon = (transport?: Annonce['transport']) => {
     switch (transport) {
       case 'avion':
@@ -121,26 +121,6 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
           <span className="text-xs font-medium">Annonce disponible</span>
         </div>
       )}
-
-          >
-            <span>Détails</span>
-            <svg
-              className="ml-1 h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </Link>
-        </div>
-      </div>
 
       {/* Infos clés en blocs */}
       <div className="grid grid-cols-3 gap-3 mb-5" role="group" aria-label="Informations clés">

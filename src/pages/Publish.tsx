@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useAnnonce } from '../contexts/AnnonceContext';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import { useAuth } from '../contexts/AuthContext';
-import { useAnnonces } from '../contexts/AnnonceContext';
+import { africanCities } from '../data/africanCities';
 import { Plane, Package } from 'lucide-react';
 
 const PublishSchema = Yup.object().shape({
@@ -22,19 +23,14 @@ const PublishSchema = Yup.object().shape({
 
 const Publish: React.FC = () => {
   const { user } = useAuth();
-  const { addAnnonce } = useAnnonces();
+  const { addAnnonce } = useAnnonce();
   const navigate = useNavigate();
   const [annonceType, setAnnonceType] = useState<'GP' | 'EXPEDITEUR'>('GP');
 
   // Liste des grandes villes d'Afrique (échantillon extensible)
-  const africanCities = [
-    'Abidjan', 'Accra', 'Addis-Abeba', 'Alger', 'Antananarivo', 'Bamako', 'Bangui', 'Banjul', 'Bissau',
-    'Brazzaville', 'Bujumbura', 'Caire', 'Casablanca', 'Conakry', 'Cotonou', 'Dakar', 'Dar es Salaam',
-    'Djibouti', 'Douala', 'Freetown', 'Gaborone', 'Harare', 'Johannesburg', 'Kampala', 'Khartoum',
-    'Kigali', 'Kinshasa', 'Lagos', 'Libreville', 'Lome', 'Luanda', 'Lusaka', 'Marrakech', 'Maputo',
-    'Mogadiscio', 'Monrovia', 'Nairobi', 'Ndjamena', 'Niamey', 'Nouakchott', 'Ouagadougou', 'Port Louis',
-    'Praia', 'Rabat', 'Tanger', 'Tripoli', 'Tunis', 'Victoria', 'Windhoek'
-  ];
+  const sortedCities = useMemo(() => {
+    return [...new Set(africanCities.map(city => city.name))].sort();
+  }, []);
 
   const oneToHundred = Array.from({ length: 100 }, (_, i) => (i + 1));
 
@@ -136,13 +132,18 @@ const Publish: React.FC = () => {
                       {annonceType === 'GP' ? 'Ville de départ' : 'Ville d\'envoi'}
                     </label>
                     <Field
+                      as="select"
                       id="villeDepart"
                       name="villeDepart"
-                      as="input"
-                      list="africanCities"
-                      placeholder="Commencez à taper une ville..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
-                    />
+                    >
+                      <option value="">Sélectionner une ville</option>
+                      {sortedCities.map((ville) => (
+                        <option key={ville} value={ville}>
+                          {ville}
+                        </option>
+                      ))}
+                    </Field>
                     <ErrorMessage name="villeDepart" component="div" className="mt-1 text-sm text-red-600" />
                   </div>
 
@@ -151,13 +152,18 @@ const Publish: React.FC = () => {
                       {annonceType === 'GP' ? 'Ville d\'arrivée' : 'Ville de réception'}
                     </label>
                     <Field
+                      as="select"
                       id="villeArrivee"
                       name="villeArrivee"
-                      as="input"
-                      list="africanCities"
-                      placeholder="Commencez à taper une ville..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
-                    />
+                    >
+                      <option value="">Sélectionner une ville</option>
+                      {sortedCities.map((ville) => (
+                        <option key={ville} value={ville}>
+                          {ville}
+                        </option>
+                      ))}
+                    </Field>
                     <ErrorMessage name="villeArrivee" component="div" className="mt-1 text-sm text-red-600" />
                   </div>
                 </div>

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAnnonces } from '../contexts/AnnonceContext';
+import { useAnnonce } from '../contexts/AnnonceContext';
 import { Calendar, MapPin, Package, Euro, Plane, Car, Bus, ArrowLeft, MessageSquare, Phone, User, Loader2 } from 'lucide-react';
 
 const AnnonceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getAnnonceById } = useAnnonces();
+  const { getAnnonceById } = useAnnonce();
   const [annonce, setAnnonce] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
