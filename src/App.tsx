@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnnonceProvider } from './contexts/AnnonceContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
@@ -131,13 +132,15 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AnnonceProvider>
-          <ConversationProvider>
-            <AppContent />
-          </ConversationProvider>
-        </AnnonceProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AnnonceProvider>
+            <ConversationProvider>
+              <AppContent />
+            </ConversationProvider>
+          </AnnonceProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }

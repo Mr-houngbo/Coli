@@ -79,7 +79,7 @@ const Header: React.FC = () => {
               <Menu className="h-6 w-6 text-gray-700" />
             </button>
             <Link to="/" className="flex items-center">
-              <h1 className="text-2xl font-bold text-violet-600">GP Connect</h1>
+              <h1 className="text-2xl font-bold text-violet-600">Coli</h1>
             </Link>
           </div>
 

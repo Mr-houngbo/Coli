@@ -234,7 +234,7 @@ const AnnonceDetail: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{userName}</p>
-                      <p className="text-sm text-gray-600">Membre GP Connect</p>
+                      <p className="text-sm text-gray-600">Membre de Coli</p>
                     </div>
                   </div>
 

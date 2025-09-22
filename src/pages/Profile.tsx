@@ -110,7 +110,7 @@ const Profile: React.FC = () => {
                 <div>
                   <h1 className="text-3xl font-bold">{safeProfile.full_name}</h1>
                   <p className="text-violet-100">
-                    {safeProfile.role === 'gp' ? 'GP' : 'Expéditeur'} sur GP Connect
+                    {safeProfile.role === 'gp' ? 'Transporteur' : 'Expéditeur'} sur Coli
                   </p>
                 </div>
               </div>

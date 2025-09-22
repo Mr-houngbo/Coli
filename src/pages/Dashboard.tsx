@@ -200,7 +200,7 @@ const Dashboard: React.FC = () => {
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-gradient-to-r from-violet-500 to-violet-600 rounded-lg p-6 text-white">
-            <h3 className="text-lg font-bold mb-2">Voyagez avec GP Connect</h3>
+            <h3 className="text-lg font-bold mb-2">Voyagez avec Coli</h3>
             <p className="text-violet-100 mb-4">
               Monétisez vos voyages en transportant des colis pour d'autres utilisateurs
             </p>

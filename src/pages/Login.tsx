@@ -50,7 +50,7 @@ const Login: React.FC = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <Link to="/" className="flex justify-center">
-            <h1 className="text-3xl font-bold text-violet-600">GP Connect</h1>
+            <h1 className="text-3xl font-bold text-violet-600">Coli</h1>
           </Link>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Connectez-vous à votre compte
