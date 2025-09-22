@@ -23,7 +23,6 @@ type AuthContextType = {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   refreshProfile: () => Promise<void>;
-  isProfileStub: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -32,10 +31,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isProfileStub, setIsProfileStub] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
+    const PROFILE_TIMEOUT_MS = 12000;
+    const RETRY_TIMEOUT_MS = 15000;
+    const isTimeout = (e: any) => typeof e?.message === 'string' && e.message.startsWith('timeout:');
     const withTimeout = async <T,>(fn: () => PromiseLike<T>, ms = 5000, label = 'op') => {
       let timer: any;
       const timeout = new Promise<never>((_, reject) => {
@@ -53,13 +54,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Try to load existing profile
       console.log('[Auth] fetchProfile select start for', userId);
-      const respSelect: any = await withTimeout(
+      let respSelect: any = await withTimeout(
         () => (supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .single() as any),
-        5000,
+        PROFILE_TIMEOUT_MS,
         'profiles.select'
       );
       const data = respSelect?.data;
@@ -68,8 +69,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!error && data) {
         setProfile(data as any);
-        setIsProfileStub(false);
         return data;
+      }
+
+      // Retry une fois en cas de timeout
+      if (!data && (isTimeout(error) || isTimeout(respSelect))) {
+        console.warn('[Auth] fetchProfile select timeout, retrying once...');
+        try {
+          respSelect = await withTimeout(
+            () => (supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .single() as any),
+            RETRY_TIMEOUT_MS,
+            'profiles.select.retry'
+          );
+        } catch (e) {
+          console.warn('[Auth] fetchProfile retry error:', e);
+        }
+        const d2 = respSelect?.data;
+        const e2 = respSelect?.error;
+        if (!e2 && d2) {
+          setProfile(d2 as any);
+          return d2;
+        }
       }
 
       // If profile is missing, attempt to auto-create a minimal one
@@ -91,20 +115,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('[Auth] fetchProfile upsert start');
       await withTimeout(
         () => (supabase.from('profiles').upsert([upsertPayload], { onConflict: 'id' }) as any),
-        5000,
+        PROFILE_TIMEOUT_MS,
         'profiles.upsert'
       );
       console.log('[Auth] fetchProfile upsert done');
 
       // Re-fetch after upsert
       console.log('[Auth] fetchProfile reselect start');
-      const respSelect2: any = await withTimeout(
+      let respSelect2: any = await withTimeout(
         () => (supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .single() as any),
-        5000,
+        PROFILE_TIMEOUT_MS,
         'profiles.reselect'
       );
       const data2 = respSelect2?.data;
@@ -112,38 +136,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (data2) {
         setProfile(data2 as any);
-        setIsProfileStub(false);
         return data2;
       }
 
-      // Fallback: set a stub to avoid UI blocking
-      const stub: any = {
-        id: userId,
-        full_name: fullName,
-        phone: phoneMeta,
-        whatsapp_number: phoneMeta,
-        role: 'expediteur',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setProfile(stub);
-      setIsProfileStub(true);
-      return stub;
+      // Retry reselect en cas de timeout
+      if (!data2 && (isTimeout(respSelect2))) {
+        console.warn('[Auth] fetchProfile reselect timeout, retrying once...');
+        try {
+          respSelect2 = await withTimeout(
+            () => (supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .single() as any),
+            RETRY_TIMEOUT_MS,
+            'profiles.reselect.retry'
+          );
+        } catch (e) {
+          console.warn('[Auth] fetchProfile reselect retry error:', e);
+        }
+        const d3 = respSelect2?.data;
+        if (d3) {
+          setProfile(d3 as any);
+          return d3;
+        }
+      }
+      // Si toujours rien, laisser profile à null
+      setProfile(null);
+      return null;
     } catch (error) {
       console.error('Error fetching/creating profile:', error);
-      // As a last resort, keep UI usable with a stub profile
-      const stub: any = {
-        id: userId,
-        full_name: (user as any)?.user_metadata?.full_name || (user as any)?.email?.split('@')[0] || 'Utilisateur',
-        phone: '',
-        whatsapp_number: '',
-        role: 'expediteur',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setProfile(stub);
-      setIsProfileStub(true);
-      return stub;
+      setProfile(null);
+      return null;
     }
   };
 
@@ -308,7 +332,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     isAuthenticated: !!user,
     refreshProfile,
-    isProfileStub,
   };
 
   return (

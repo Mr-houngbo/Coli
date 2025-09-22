@@ -25,14 +25,19 @@ export default function AnnoncesList() {
         setLoading(true);
         const { data, error } = await supabase
           .from('annonces')
-          .select('*')
-          .order('created_at', { ascending: false });
+          .select('*');
 
         if (error) {
           throw error;
         }
 
-        setAnnonces(data || []);
+        const items = (data || []) as Annonce[];
+        items.sort((a, b) => {
+          const da = new Date((a as any).created_at || (a as any).date_annonce || 0).getTime();
+          const db = new Date((b as any).created_at || (b as any).date_annonce || 0).getTime();
+          return db - da;
+        });
+        setAnnonces(items);
       } catch (err) {
         console.error('Erreur lors du chargement des annonces:', err);
         setError('Impossible de charger les annonces. Veuillez réessayer.');

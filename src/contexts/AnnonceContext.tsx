@@ -40,8 +40,7 @@ export const AnnonceProvider: React.FC<AnnonceProviderProps> = ({ children }) =>
         .insert([
           {
             ...annonceData,
-            user_id: userId,
-            created_at: new Date().toISOString()
+            user_id: userId
           }
         ])
         .select()
@@ -52,8 +51,8 @@ export const AnnonceProvider: React.FC<AnnonceProviderProps> = ({ children }) =>
       setAnnonces(prev => [data as Annonce, ...prev]);
       toast.success('Annonce publiée avec succès !');
       return data as Annonce;
-    } catch (error) {
-      console.error('Erreur lors de la création de l\'annonce:', error);
+    } catch (error: any) {
+      console.error('Erreur lors de la création de l\'annonce:', error?.message || error);
       toast.error('Erreur lors de la publication de l\'annonce');
       throw error;
     } finally {
@@ -63,53 +62,98 @@ export const AnnonceProvider: React.FC<AnnonceProviderProps> = ({ children }) =>
 
   const getUserAnnonces = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: annoncesData, error: annoncesError } = await supabase
         .from('annonces')
-        .select('*, user:profiles(*)')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('user_id', userId);
 
-      if (error) throw error;
-      
-      return data as Annonce[];
-    } catch (error) {
-      console.error('Erreur lors de la récupération des annonces:', error);
+      if (annoncesError) throw annoncesError;
+
+      const items = (annoncesData || []) as any[];
+      if (!items.length) return [] as Annonce[];
+
+      // Charger les profils en un seul appel
+      const userIds = Array.from(new Set(items.map(a => a.user_id).filter(Boolean)));
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileById = new Map((profilesData || []).map((p: any) => [p.id, p]));
+      const merged = items.map(a => ({ ...a, user: profileById.get(a.user_id) }));
+      // Tri côté client si possible
+      merged.sort((a: any, b: any) => {
+        const da = new Date(a.created_at || a.date_annonce || 0).getTime();
+        const db = new Date(b.created_at || b.date_annonce || 0).getTime();
+        return db - da;
+      });
+      return merged as unknown as Annonce[];
+    } catch (error: any) {
+      console.error('Erreur lors de la récupération des annonces:', error?.message || error);
       return [];
     }
   };
 
   const getAllAnnonces = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: annoncesData, error: annoncesError } = await supabase
         .from('annonces')
-        .select('*, user:profiles(*)')
-        .order('created_at', { ascending: false });
+        .select('*');
 
-      if (error) throw error;
-      
-      // Mettre à jour le state local avec les annonces chargées
-      setAnnonces(data as Annonce[]);
-      
-      return data as Annonce[];
-    } catch (error) {
-      console.error('Erreur lors de la récupération des annonces:', error);
+      if (annoncesError) throw annoncesError;
+
+      const items = (annoncesData || []) as any[];
+      if (!items.length) {
+        setAnnonces([]);
+        return [] as Annonce[];
+      }
+
+      const userIds = Array.from(new Set(items.map(a => a.user_id).filter(Boolean)));
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileById = new Map((profilesData || []).map((p: any) => [p.id, p]));
+      const merged = items.map(a => ({ ...a, user: profileById.get(a.user_id) }));
+
+      setAnnonces(merged as unknown as Annonce[]);
+      return merged as unknown as Annonce[];
+    } catch (error: any) {
+      console.error('Erreur lors de la récupération des annonces:', error?.message || error);
       return [];
     }
   };
 
   const getAnnonceById = async (id: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: annonceData, error: annonceError } = await supabase
         .from('annonces')
-        .select('*, user:profiles(*)')
+        .select('*')
         .eq('id', id)
         .single();
 
-      if (error) throw error;
-      
-      return data as Annonce;
-    } catch (error) {
-      console.error('Erreur lors de la récupération de l\'annonce:', error);
+      if (annonceError) throw annonceError;
+      if (!annonceData) return undefined;
+
+      const userId = (annonceData as any).user_id;
+      let userProfile: any = null;
+      if (userId) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        if (!profileError) userProfile = profileData;
+      }
+
+      return ({ ...annonceData, user: userProfile } as unknown) as Annonce;
+    } catch (error: any) {
+      console.error('Erreur lors de la récupération de l\'annonce:', error?.message || error);
       return undefined;
     }
   };

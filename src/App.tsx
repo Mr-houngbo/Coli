@@ -15,11 +15,12 @@ import AnnonceDetail from './pages/AnnonceDetail';
 import Profile from './pages/Profile';
 import AnnoncesList from './pages/AnnoncesList';
 import EmailConfirmation from './pages/EmailConfirmation';
+import Settings from './pages/Settings';
 
 import 'react-toastify/dist/ReactToastify.css';
 
 function AppContent() {
-  const { loading, error, isProfileStub } = useAuth();
+  const { loading, error } = useAuth();
 
   if (loading) {
     return (
@@ -44,18 +45,6 @@ function AppContent() {
   return (
     <>
       <Header />
-      {isProfileStub && (
-        <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800 text-sm">
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-            <p>
-              Vous utilisez un profil temporaire. Veuillez compléter votre profil pour une meilleure expérience.
-            </p>
-            <a href="/profile" className="text-yellow-900 underline hover:no-underline">
-              Compléter mon profil
-            </a>
-          </div>
-        </div>
-      )}
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -86,6 +75,12 @@ function AppContent() {
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/dashboard/settings" element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } />
         </Routes>
