@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnnonceProvider } from './contexts/AnnonceContext';
@@ -7,7 +7,7 @@ import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
 
-import Home from './pages/HomeSimple';
+import Home from './pages/HomeFinal';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/DashboardFixed';
@@ -57,31 +57,38 @@ function AppContent() {
   return (
     <>
       <Routes>
+        {/* Page d'accueil sans Header (navigation intégrée) */}
         <Route path="/" element={<Home />} />
+        
+        {/* Autres pages avec Header */}
         <Route path="/login" element={
           <>
             <Header />
             <Login />
           </>
         } />
+        
         <Route path="/register" element={
           <>
             <Header />
             <Register />
           </>
         } />
+        
         <Route path="/annonces" element={
           <>
             <Header />
             <AnnoncesList />
           </>
         } />
+        
         <Route path="/annonces/:id" element={
           <>
             <Header />
             <AnnonceDetail />
           </>
         } />
+        
         <Route path="/email-confirmation" element={
           <>
             <Header />
@@ -95,84 +102,107 @@ function AppContent() {
             <Voyageurs />
           </>
         } />
+        
         <Route path="/expediteurs" element={
           <>
             <Header />
             <Expediteurs />
           </>
         } />
+        
         <Route path="/test" element={
           <>
             <Header />
             <TestPage />
           </>
         } />
-          
-          {/* Routes Flow-Coli - Intégrées dans la structure normale */}
-          <Route path="/flow-coli" element={
-            <ProtectedRoute>
+        
+        {/* Routes Flow-Coli avec Header */}
+        <Route path="/flow-coli" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <FlowColiPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/escrow" element={
-            <ProtectedRoute>
+            </>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/escrow" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <EscrowPage />
-            </ProtectedRoute>
-          } />
+            </>
+          </ProtectedRoute>
+        } />
 
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/dashboard/mes-annonces" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/publish" element={
-            <ProtectedRoute>
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/dashboard/mes-annonces" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/publish" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <Publish />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/dashboard/settings" element={
-            <ProtectedRoute>
+            </>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <Settings />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/conversations" element={
-            <ProtectedRoute>
+            </>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/conversations" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <Conversations />
-            </ProtectedRoute>
-          } />
-          <Route path="/conversations/:id" element={
-            <ProtectedRoute>
+            </>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/conversations/:id" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <ChatPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/notifications" element={
-            <ProtectedRoute>
+            </>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/notifications" element={
+          <ProtectedRoute>
+            <>
+              <Header />
               <Notifications />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </main>
+            </>
+          </ProtectedRoute>
+        } />
+      </Routes>
 
       <ToastContainer
         position="top-right"
-        autoClose={3000}
+        autoClose={5000}
         hideProgressBar={false}
         newestOnTop={false}
         closeOnClick
