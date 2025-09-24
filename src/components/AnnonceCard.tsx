@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Annonce } from '../types';
-import { Calendar, MapPin, Package, Plane, Car, Bus, MessageSquare, CircleDollarSign, CheckCircle2, User as UserIcon } from 'lucide-react';
+import { Calendar, MapPin, Package, Plane, Car, Bus, CircleDollarSign, CheckCircle2, User as UserIcon } from 'lucide-react';
 import { useConversations } from '../contexts/ConversationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
+import { FlowColiTrigger } from './FlowColiTrigger';
 
 interface AnnonceCardProps {
   annonce: Annonce;
@@ -14,7 +15,7 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { getOrCreateConversation } = useConversations();
-  const { takeAnnonce } = useAnnonce();
+  const [showFlowColi, setShowFlowColi] = useState(false);
   const getTransportIcon = (transport?: Annonce['transport']) => {
     switch (transport) {
       case 'avion':
@@ -64,6 +65,7 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
 
 
   return (
+    <>
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow p-6">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
@@ -81,8 +83,16 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
               className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-medium border ${
                 annonce.status === 'active'
                   ? 'bg-green-50 text-green-700 border-green-200'
-                  : annonce.status === 'prise'
+                  : annonce.status === 'secured'
+                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                  : annonce.status === 'paid'
                   ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
+                  : annonce.status === 'in_transit'
+                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                  : annonce.status === 'delivered'
+                  ? 'bg-orange-50 text-orange-800 border-orange-200'
+                  : annonce.status === 'completed'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : 'bg-gray-100 text-gray-700 border-gray-200'
               }`}
               aria-label={`Statut: ${annonce.status}`}
@@ -193,24 +203,32 @@ const AnnonceCard: React.FC<AnnonceCardProps> = ({ annonce }) => {
           {(!annonce.status || annonce.status === 'active') && (
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 if (!user?.id) {
                   navigate('/login', { state: { redirectTo: `/annonces/${annonce.id}` } });
                   return;
                 }
-                const res = await takeAnnonce(annonce.id, user.id);
-                if (res?.conversationId) navigate(`/conversations/${res.conversationId}`);
+                setShowFlowColi(true);
               }}
               className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              aria-label="Prendre cette annonce"
-              title="Prendre l'annonce"
+              aria-label="Démarrer Flow-Coli pour cette annonce"
+              title="Démarrer Flow-Coli"
             >
-              Prendre
+              🚀 Flow-Coli
             </button>
           )}
         </div>
       </div>
     </div>
+    
+    {/* Modal Flow-Coli */}
+    {showFlowColi && (
+      <FlowColiTrigger 
+        annonce={annonce}
+        onClose={() => setShowFlowColi(false)}
+      />
+    )}
+  </>
   );
 };
 

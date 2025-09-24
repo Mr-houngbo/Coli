@@ -94,6 +94,15 @@ const Header: React.FC = () => {
               Annonces
             </Link>
             
+            <Link
+              to="/flow-coli"
+              className={`text-gray-600 hover:text-violet-600 transition-colors ${
+                isActive('/flow-coli') ? 'text-violet-600 font-medium' : ''
+              }`}
+            >
+              🚀 Flow-Coli
+            </Link>
+            
             {isAuthenticated ? (
               <>
                 <Link

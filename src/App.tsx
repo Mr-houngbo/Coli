@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnnonceProvider } from './contexts/AnnonceContext';
@@ -10,10 +10,10 @@ import { useAuth } from './contexts/AuthContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/DashboardFixed';
 import Publish from './pages/Publish';
 import AnnonceDetail from './pages/AnnonceDetail';
-import Profile from './pages/Profile';
+import Profile from './pages/ProfileFixed';
 import AnnoncesList from './pages/AnnoncesList';
 import EmailConfirmation from './pages/EmailConfirmation';
 import Settings from './pages/Settings';
@@ -21,8 +21,13 @@ import Conversations from './pages/Conversations';
 import ChatPage from './pages/ChatPage';
 import Notifications from './pages/Notifications';
 import { ConversationProvider } from './contexts/ConversationContext';
+import { ColiSpaceProvider } from './contexts/ColiSpaceContext';
+import { TransactionProvider } from './contexts/TransactionContext';
 import Voyageurs from './pages/Voyageurs';
 import Expediteurs from './pages/Expediteurs';
+import TestPage from './pages/TestPage';
+import FlowColiPage from './pages/FlowColiPage';
+import EscrowPage from './pages/EscrowPage';
 
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -63,6 +68,20 @@ function AppContent() {
           
           <Route path="/voyageurs" element={<Voyageurs />} />
           <Route path="/expediteurs" element={<Expediteurs />} />
+          <Route path="/test" element={<TestPage />} />
+          
+          {/* Routes Flow-Coli - Intégrées dans la structure normale */}
+          <Route path="/flow-coli" element={
+            <ProtectedRoute>
+              <FlowColiPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/escrow" element={
+            <ProtectedRoute>
+              <EscrowPage />
+            </ProtectedRoute>
+          } />
 
           <Route path="/dashboard" element={
             <ProtectedRoute>
@@ -136,7 +155,11 @@ function App() {
         <AuthProvider>
           <AnnonceProvider>
             <ConversationProvider>
-              <AppContent />
+              <ColiSpaceProvider>
+                <TransactionProvider>
+                  <AppContent />
+                </TransactionProvider>
+              </ColiSpaceProvider>
             </ConversationProvider>
           </AnnonceProvider>
         </AuthProvider>

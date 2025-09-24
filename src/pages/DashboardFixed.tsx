@@ -3,12 +3,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Annonce, Profile } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
-import Sidebar from '../components/Sidebar';
 import AnnonceCard from '../components/AnnonceCard';
 import { Plus, Package, TrendingUp, Users, List, User, Loader2, BarChart3, Shield } from 'lucide-react';
 import ColiDashboardSimple from '../components/ColiDashboardSimple';
+import ProfileFixed from './ProfileFixed';
+import NotificationCenter from '../components/NotificationCenterFixed';
 
-type DashboardTab = 'dashboard' | 'mes-annonces' | 'profile';
+type DashboardTab = 'dashboard' | 'mes-annonces' | 'notifications' | 'profile';
 
 const Dashboard: React.FC = () => {
   const { user, profile } = useAuth();
@@ -19,11 +20,15 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const currentTab: DashboardTab = location.pathname.includes('mes-annonces') 
-    ? 'mes-annonces' 
-    : location.pathname.includes('profile')
-      ? 'profile'
-      : 'dashboard';
+  // Déterminer l'onglet actuel depuis l'URL
+  const currentTab: DashboardTab = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    if (tab && ['dashboard', 'mes-annonces', 'notifications', 'profile'].includes(tab)) {
+      return tab as DashboardTab;
+    }
+    return 'dashboard';
+  }, [location.search]);
 
   // Memoize computed values
   const { totalAnnonces, gpAnnonces, expediteurAnnonces } = useMemo(() => ({
@@ -79,12 +84,15 @@ const Dashboard: React.FC = () => {
   }, [userId, getUserAnnonces]);
 
   // Rediriger vers /login seulement si l'utilisateur n'est pas authentifié
-  // (ne pas rediriger quand le profil n'est pas encore chargé pour éviter une boucle)
   useEffect(() => {
     if (!user) {
       navigate('/login');
     }
   }, [user, navigate]);
+
+  const setActiveTab = useCallback((tab: DashboardTab) => {
+    navigate(`/dashboard?tab=${tab}`);
+  }, [navigate]);
 
   const renderDashboard = useCallback(() => {
     if (!user) return null;
@@ -167,6 +175,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Dashboard Flow-Coli avancé */}
+        <div className="mb-8">
           <div className="flex items-center gap-3 mb-6">
             <BarChart3 className="h-6 w-6 text-violet-600" />
             <h2 className="text-xl font-bold text-gray-900">Dashboard Flow-Coli</h2>
@@ -255,8 +264,6 @@ const Dashboard: React.FC = () => {
             </div>
           ) : userAnnonces.length > 0 ? (
             userAnnonces.map((annonce) => {
-              // Ensure the annonce has the correct user type
-              // Create a properly typed user object with all required fields
               const userProfile: Profile = (
                 profile ? {
                   id: profile.id,
@@ -279,7 +286,6 @@ const Dashboard: React.FC = () => {
                 }
               ) as unknown as Profile;
               
-              // Create annonce with user, ensuring all required fields are present
               const annonceWithUser = {
                 ...annonce,
                 user: userProfile
@@ -290,7 +296,7 @@ const Dashboard: React.FC = () => {
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">Vous n'avez pas encore d'annonces.</p>
               <Link
-                to="/annonces/nouvelle"
+                to="/publish"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -312,38 +318,8 @@ const Dashboard: React.FC = () => {
       );
     }
     
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold mb-6 flex items-center">
-          <User className="h-5 w-5 mr-2 text-violet-600" />
-          Mon Profil
-        </h2>
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium text-gray-900">Informations personnelles</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              {profile?.full_name || user.email?.split('@')[0] || 'Non renseigné'}
-            </p>
-            <p className="text-sm text-gray-600">{user.email || 'Non renseigné'}</p>
-            <p className="text-sm text-gray-600">
-              Téléphone: {profile?.phone || 'Non renseigné'}
-            </p>
-            <p className="text-sm text-gray-600">
-              WhatsApp: {profile?.whatsapp_number || 'Non renseigné'}
-            </p>
-          </div>
-          <div className="pt-4 border-t border-gray-200">
-            <Link
-              to="/profile"
-              className="text-violet-600 hover:text-violet-800 text-sm font-medium"
-            >
-              Modifier le profil
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }, [profile, user]);
+    return <ProfileFixed />;
+  }, [user]);
 
   const renderContent = useCallback(() => {
     if (!user) return null;
@@ -353,10 +329,12 @@ const Dashboard: React.FC = () => {
         return renderMesAnnonces();
       case 'profile':
         return renderProfile();
+      case 'notifications':
+        return <NotificationCenter />;
       default:
         return renderDashboard();
     }
-  }, [currentTab, profile, user, renderMesAnnonces, renderProfile, renderDashboard]);
+  }, [currentTab, user, renderMesAnnonces, renderProfile, renderDashboard]);
 
   if (!user) {
     return (
@@ -394,10 +372,58 @@ const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
-        <Sidebar activeTab={currentTab} />
-        <main className="flex-1 p-6">
+        {/* Sidebar */}
+        <div className="w-64 bg-violet-800 min-h-screen">
+          <div className="p-6">
+            <h2 className="text-white text-lg font-semibold mb-6">Dashboard</h2>
+            <nav className="space-y-2">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors text-left ${
+                  currentTab === 'dashboard' ? 'bg-violet-700 text-white' : 'text-violet-200 hover:bg-violet-700'
+                }`}
+              >
+                <BarChart3 className="h-5 w-5" />
+                <span>Dashboard Coli</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('mes-annonces')}
+                className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors text-left ${
+                  currentTab === 'mes-annonces' ? 'bg-violet-700 text-white' : 'text-violet-200 hover:bg-violet-700'
+                }`}
+              >
+                <List className="h-5 w-5" />
+                <span>Mes annonces</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors text-left ${
+                  currentTab === 'profile' ? 'bg-violet-700 text-white' : 'text-violet-200 hover:bg-violet-700'
+                }`}
+              >
+                <User className="h-5 w-5" />
+                <span>Mon Profil</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors text-left ${
+                  currentTab === 'notifications' ? 'bg-violet-700 text-white' : 'text-violet-200 hover:bg-violet-700'
+                }`}
+              >
+                <Package className="h-5 w-5" />
+                <span>Notifications</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 p-8">
           {renderContent()}
-        </main>
+        </div>
       </div>
     </div>
   );

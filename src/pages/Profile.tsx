@@ -3,8 +3,10 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
-import { User, Phone, Mail, Edit2, Save, X, Loader2 } from 'lucide-react';
+import { User, Mail, Edit2, Save, X, Loader2, Shield, CheckCircle, AlertTriangle, Star } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { IdentityVerification } from '../components/auth/IdentityVerification';
+import { TrustBadges } from '../components/TrustBadges';
 
 const ProfileSchema = Yup.object().shape({
   name: Yup.string()
@@ -242,20 +244,23 @@ const Profile: React.FC = () => {
                           >
                             <X className="h-4 w-4" />
                             <span>Annuler</span>
-                          </button>
                         </div>
                       )}
                     </Form>
                   )}
                 </Formik>
-              </div>
 
-              {/* Stats Sidebar */}
-              <div className="lg:col-span-1 space-y-6">
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Statistiques</h3>
-                  
-                  <div className="space-y-4">
+                {/* Section KYC et Vérification d'identité */}
+                <div className="mt-8">
+                  <div className="border-t border-gray-200 pt-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Shield className="h-6 w-6 text-blue-600" />
+                      <h2 className="text-xl font-bold text-gray-900">Vérification d'identité (KYC)</h2>
+                      {safeProfile.identity_verified ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      )}
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Total annonces</span>
                       <span className="font-bold text-2xl text-violet-600">{annonces.total}</span>

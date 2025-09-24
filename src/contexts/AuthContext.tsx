@@ -1,29 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { User } from '@supabase/supabase-js';
-
-type Profile = {
-  id: string;
-  full_name: string;
-  whatsapp_number: string;
-  phone: string;
-  role: 'expediteur' | 'gp' | 'admin';
-  created_at: string;
-  updated_at: string;
-};
-
-type AuthContextType = {
-  user: User | null;
-  profile: Profile | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (data: { email: string; password: string; name: string; phone: string }) => Promise<boolean>;
-  loginWithGoogle: () => Promise<boolean>;
-  logout: () => Promise<void>;
-  isAuthenticated: boolean;
-  refreshProfile: () => Promise<void>;
-};
+import { Profile, AuthContextType, RegisterData, IdentityVerification } from '../types';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -43,20 +21,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        // Augmenter le délai à chaque tentative (backoff exponentiel)
         if (attempt > 0) {
           const delay = initialDelay * Math.pow(2, attempt - 1);
           console.log(`[Auth] Retry attempt ${attempt + 1} after ${delay}ms`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
         
-        // Essayer d'exécuter la fonction
         return await fn();
       } catch (error) {
         console.warn(`[Auth] Attempt ${attempt + 1} failed:`, error);
         lastError = error as Error;
         
-        // Ne pas réessayer pour certaines erreurs
         if (
           error instanceof Error && 
           (error.message.includes('timeout') || error.message.includes('NetworkError'))
@@ -64,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           continue;
         }
         
-        throw error; // Propager les autres erreurs
+        throw error;
       }
     }
     
@@ -76,15 +51,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log(`[Auth] fetchProfile starting for user ${userId}`);
     
     try {
-      // Fonction pour tenter de récupérer le profil
       const attemptFetch = async () => {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // Timeout réduit à 10s car on a les retries
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
         );
         
         const fetchPromise = supabase
           .from('profiles')
-          .select('id, full_name, whatsapp_number, phone, role, created_at, updated_at')
+          .select(`
+            id, full_name, email, phone, whatsapp_number, role, created_at, updated_at,
+            is_verified, verification_status, trust_score, total_transactions,
+            successful_transactions, average_rating, identity_verified,
+            whatsapp_verified, email_verified
+          `)
           .eq('id', userId)
           .single();
         
@@ -97,10 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { data };
       };
       
-      // Essayer de récupérer le profil avec retry
       const { data } = await retryWithBackoff(attemptFetch, 3, 1000);
-      
-      // La gestion d'erreur est maintenant dans attemptFetch
 
       if (data) {
         console.log(`[Auth] Profile loaded successfully:`, data);
@@ -114,9 +90,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const profileData = {
         id: userId,
         full_name: user?.user_metadata?.full_name || user?.user_metadata?.name || 'Utilisateur',
+        email: user?.email || '',
         phone: user?.user_metadata?.phone || '',
         whatsapp_number: user?.user_metadata?.phone || '',
         role: 'expediteur' as const,
+        is_verified: false,
+        verification_status: 'pending' as const,
+        trust_score: 0,
+        total_transactions: 0,
+        successful_transactions: 0,
+        average_rating: 0.0,
+        identity_verified: false,
+        whatsapp_verified: false,
+        email_verified: false
       };
 
       const { error: upsertError } = await supabase
@@ -134,7 +120,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
     } catch (error) {
       console.error('[Auth] fetchProfile error:', error);
-      // Ne pas bloquer l'app si le profil échoue
       setProfile(null);
       return null;
     }
@@ -143,6 +128,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshProfile = async () => {
     if (user?.id) {
       await fetchProfile(user.id);
+    }
+  };
+
+  // Nouvelles méthodes pour la vérification d'identité
+  const submitIdentityVerification = async (data: Omit<IdentityVerification, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
+    try {
+      if (!user?.id) {
+        throw new Error('Utilisateur non connecté');
+      }
+
+      const { error } = await supabase
+        .from('identity_verifications')
+        .insert({
+          user_id: user.id,
+          ...data
+        });
+
+      if (error) throw error;
+
+      console.log('[Auth] Identity verification submitted successfully');
+      return true;
+    } catch (error: any) {
+      console.error('[Auth] Identity verification error:', error);
+      setError(error.message);
+      return false;
+    }
+  };
+
+  const checkVerificationStatus = async (): Promise<IdentityVerification | null> => {
+    try {
+      if (!user?.id) {
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('identity_verifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      return data as IdentityVerification || null;
+    } catch (error: any) {
+      console.error('[Auth] Check verification status error:', error);
+      return null;
     }
   };
 
@@ -177,10 +212,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
-    // Initialiser immédiatement
     initAuth();
 
-    // Écouter les changements de session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[Auth] Auth state change:', event, session?.user ? 'User found' : 'No user');
@@ -195,7 +228,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
         }
         
-        // S'assurer que loading est toujours false après les changements d'auth
         setLoading(false);
       }
     );
@@ -241,7 +273,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (data: { email: string; password: string; name: string; phone: string }): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<boolean> => {
     try {
       setLoading(true);
       console.log('[Auth] Register attempt for:', data.email);
@@ -265,14 +297,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .insert({
             id: authData.user.id,
             full_name: data.name,
+            email: data.email,
             phone: data.phone,
             whatsapp_number: data.phone,
-            role: 'expediteur'
+            role: data.role,
+            is_verified: false,
+            verification_status: 'pending',
+            trust_score: 0,
+            total_transactions: 0,
+            successful_transactions: 0,
+            average_rating: 0.0,
+            identity_verified: false,
+            whatsapp_verified: false,
+            email_verified: false
           });
           
         if (profileError) {
           console.warn('[Auth] Profile creation error during register:', profileError);
-          // Ne pas échouer l'inscription si le profil échoue
         }
       }
 
@@ -334,6 +375,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     isAuthenticated: !!user,
     refreshProfile,
+    submitIdentityVerification,
+    checkVerificationStatus,
   };
 
   return (
